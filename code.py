@@ -1,2 +1,3 @@
 # write python here
-print("hello world"
+for i in range(999):
+  print("Ахмедияр крутой")
