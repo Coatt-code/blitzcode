@@ -5,7 +5,16 @@ import CodeMirror from "@uiw/react-codemirror";
 import { python } from "@codemirror/lang-python";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { useState } from "react";
-import { sendCode } from "@/app/actions";
+
+async function sendCode(code: string) {
+  const res = await fetch("api/send_code", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ code: code }),
+  })
+  const data = await res.json()
+  console.log(data)
+}
 
 async function handleSubmit (code: string) {
     const res = await sendCode(code) 
