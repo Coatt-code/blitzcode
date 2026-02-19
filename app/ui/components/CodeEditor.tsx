@@ -1,23 +1,18 @@
 "use client";
 
-import { saveCode } from "@/app/actions";
 import { useRef } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { python } from "@codemirror/lang-python";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { useState } from "react";
+import { sendCode } from "@/app/actions";
 
+async function handleSubmit (code: string) {
+    const res = await sendCode(code) 
+  }
 export default function CodeEditor () {
   const codeRef = useRef(`# write python here\nprint("hello world")`);
-  const [textOutput, setTextOutput] = useState("");
-  const [errorOutput, setErrorOutput] = useState("");
-  async function handleSubmit (code: string) {
-    const s = await saveCode(code)
-    setTextOutput(s.stdout)
-    setErrorOutput(s.error)
-    console.log(s.error)
-  }
-
+  
   return (
     <>
     <CodeMirror
@@ -39,15 +34,5 @@ export default function CodeEditor () {
         Submit
       </button>
     </div>
-    <p>Output:</p>
-    <pre>
-      {textOutput}
-    </pre>
-    <p>Errors:</p>
-    <pre>
-      
-      {errorOutput}
-    </pre>
-    
     </>);
 }

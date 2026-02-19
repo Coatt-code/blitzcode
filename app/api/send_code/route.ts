@@ -1,26 +1,12 @@
-import { exec } from "child_process"
+export async function POST(req: Request) {
+  const body = await req.json()
 
-export async function send_code(code: string) {
-  const output = await new Promise ((resolve) => {
-    exec(code)
-    exec("python code.py", (error,stdout,stderr) => {
-      if (error) {
-        let er = error.message
-        er = er.replace(`"/home/coatt/Documents/vercel_prac/Mini/code/code.py",`, "")
-        er = er.replace(`Command failed: python code.py`, "")
-        er = er.replace(`File`, "")
-
-        
-        resolve({error: er})
-        return
-      }
-      resolve({
-        stdout: stdout.trim(),
-        stderr: stderr.trim(),
-      })
-    })
+  const res = await fetch(process.env.JUDGE_URL + "/run", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
   })
-  //await new Promise(r => setTimeout(r, 5000));
-  return Response.json(output);
-}
 
+  const result = await res.json()
+  return Response.json(result)
+}

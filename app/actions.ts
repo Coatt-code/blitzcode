@@ -1,13 +1,11 @@
 "use server";
-import { send_code } from "./api/send_code/route";
 
-export async function saveCode(code: string) {
-  console.log("Server received:", code);
-  const res = await send_code(`cat <<EOF > code.py
-${code}
-EOF
-`);
-  const resParsed = await res.json()
-
-  return resParsed
+export async function sendCode(code: string) {
+  const res = await fetch("http://localhost:3000/api/send_code", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ code: code }),
+  })
+  const data = await res.json()
+  console.log(data)
 }
