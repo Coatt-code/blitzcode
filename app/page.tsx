@@ -1,61 +1,56 @@
-"use client";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Item } from "@/components/ui/item";
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
+import { ChevronRight } from "lucide-react";
+import { neon } from '@neondatabase/serverless';
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Button } from "@/components/ui/button";
-import { useState } from "react";
-import CodeMirror from "@uiw/react-codemirror";
-import { python } from "@codemirror/lang-python";
-import { oneDark } from "@codemirror/theme-one-dark";
-import OutputDisplay from "./ui/components/OutputDisplay";
-import { AppWindowIcon, CodeIcon, SquareTerminal } from "lucide-react"
-
-export default function Home() {
-  const codePlaceholder = "# write Python code here\nprint('Hello, World!')"
-  const [code, setCode] = useState(codePlaceholder);
-  const [resData, setResData] = useState();
-  const [loading, setLoading] = useState(false);
-  const [tab, setTab] = useState("editor");
-
-  async function submitCode () {
-      setTab("output")
-      setLoading(true);
-      const res = await fetch("api/send_code", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({ code: code }),
-      })
-      const data = await res.json()
-      setResData(data);
-      setLoading(false);
-      console.log(data)
+export default function Page () {
+  async function create(formData: FormData) {
+    'use server';
+    // Connect to the Neon database
+    const sql = neon(`${process.env.DATABASE_URL}`);
+    const comment = formData.get('comment');
+    // Insert the comment from the form into the Postgres database
+    await sql.query('INSERT INTO comments (comment) VALUES ($1)', [comment]);
   }
-  return (
-    <div className="w-screen h-full flex">
-      <Tabs className="items-center justify-center flex h-full w-full pt-2" value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="problem"><AppWindowIcon />Problem</TabsTrigger>
-          <TabsTrigger value="editor"><CodeIcon />Code</TabsTrigger>
-          <TabsTrigger value="output"><SquareTerminal />Output</TabsTrigger>
-        </TabsList>
-        <TabsContent value="problem"></TabsContent>
-        <TabsContent value="editor" className="h-full w-full">
-          <CodeMirror
-            className="w-full h-full flex-1"
-            value={code}
-            onChange={(value) => setCode(value)}
-            theme={oneDark}
-            extensions={[python()]}
-            basicSetup={{
-              lineNumbers: true,
-              highlightActiveLine: true,
-              foldGutter: true,}}
-          />
-        </TabsContent>
-        <TabsContent value="output">
-          <OutputDisplay result={resData} loading={loading}/>
-        </TabsContent>
-      </Tabs>
-      <Button variant="outline" className="fixed bottom-5 right-6" onClick={submitCode}>Submit</Button>
+  return (<>
+    <div className="h-40"></div>
+    <form action={create}>
+      <input type="text" placeholder="write a comment" name="comment" />
+      <button type="submit">Submit</button>
+    </form>
+
+    <div className="mx-2">
+      <Item variant="outline">
+        <Table>
+          <TableCaption>A list of problems to solve.</TableCaption>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="text-left">Problem No.</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow>
+              <TableCell className="text-left">1</TableCell>
+              <TableCell className="text-right">
+                <Button asChild variant="outline" size="icon" className="">
+                  <Link href="/problem/1"><ChevronRight /></Link>
+                </Button>
+            </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </Item>
     </div>
-    );
+
+  </>);
 }
