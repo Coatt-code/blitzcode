@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next"
 import { ThemeProvider } from "@/components/theme-provider";
+import { Providers } from "./providers"
+import { auth } from "@/app/api/auth/[...nextauth]/route"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -19,15 +21,16 @@ export const metadata: Metadata = {
   description: " ",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const session = await auth()
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased dark h-screen w-screen`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased dark`}
       >
         <Analytics/>
         <ThemeProvider
@@ -36,7 +39,10 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-        {children}
+          <Providers session={session}>
+            {children}
+          </Providers>
+
         </ThemeProvider>
 
       </body>
