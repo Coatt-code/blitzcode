@@ -4,12 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Item, ItemActions, ItemContent, ItemTitle } from "@/components/ui/item";
 import { useEffect, useState } from "react";
 import Aurora from "@/components/Aurora";
-import { useSession } from "next-auth/react";
-import Image from "next/image";
-
+import { useUser } from "@/lib/supabase/get_client";
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function Page () {
-  const { data: session, status } = useSession()
+
   const [isVisible, setIsVisible] = useState(false)
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -18,6 +17,7 @@ export default function Page () {
 
     return () => clearTimeout(timer)
   }, [])
+  const { user, loading } = useUser()
 
   return (<>
   <div className="relative min-h-[100dvh]  animate-in overflow-clip">
@@ -27,8 +27,8 @@ export default function Page () {
       <Aurora
         colorStops={["#b31237","#b312a0","#5227FF"]}
         blend={0.5}
-        amplitude={0.1}
-        speed={1.5}/>
+        amplitude={0.2}
+        speed={1.6}/>
     </div>
     <div className="relative px-4 pt-4 z-10 grid grid-rows-[auto_auto_1fr] min-h-[100dvh]">
       <h1 className="scroll-m-20 text-5xl font-extrabold tracking-tight text-balance font-mono">
@@ -38,17 +38,26 @@ export default function Page () {
         Challenge your coding skills in 1v1 Battles.
       </p>
       <div className="self-end pb-14">
+        { loading ?
         <Item variant={"outline"} className="backdrop-blur-md bg-neutral-50/5">
           <ItemContent>
-            
-            <ItemTitle>{session?.user.name ? `Welcome back, ${session.user.name}!` : "Get started"}</ItemTitle>
+            <Skeleton className="h-9 w-26"></Skeleton>
+          </ItemContent>
+          <ItemActions>
+            <Skeleton className="h-9 w-20"></Skeleton>
+          </ItemActions>
+        </Item> :
+        <Item variant={"outline"} className="backdrop-blur-md bg-neutral-50/5">
+          <ItemContent>
+            <ItemTitle>{user ? `Hi, ${user?.user_metadata.user_name}`: "Get started"}</ItemTitle>
           </ItemContent>
           <ItemActions>
             <Button asChild >
-              {session?.user.name ? <Link href="/mm">Play</Link> : <Link href="/login">Sign up</Link>}
+              {user ? <Link href="/main">Play</Link> : <Link href="/login">Sign up</Link>}
             </Button>
           </ItemActions>
-        </Item>
+        </Item>}
+        
       </div>
     </div>
     
