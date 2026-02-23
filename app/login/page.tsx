@@ -78,7 +78,7 @@ export default function AuthButton() {
     <div className='min-h-[100dvh] w-screen justify-center items-center flex px-3'>
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>Signed in as {user?.user_metadata.user_name}</CardTitle>
+          <CardTitle>Signed in as {user?.user_metadata.name}</CardTitle>
         </CardHeader>
         <CardContent>
           <Button className="w-full" onClick={toMain}>

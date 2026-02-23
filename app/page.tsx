@@ -49,7 +49,7 @@ export default function Page () {
         </Item> :
         <Item variant={"outline"} className="backdrop-blur-md bg-neutral-50/5">
           <ItemContent>
-            <ItemTitle>{user ? `Hi, ${user?.user_metadata.user_name}`: "Get started"}</ItemTitle>
+            <ItemTitle>{user ? `Hi, ${user?.user_metadata.name}`: "Get started"}</ItemTitle>
           </ItemContent>
           <ItemActions>
             <Button asChild >
