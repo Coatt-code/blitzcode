@@ -143,9 +143,8 @@ export async function createMatch(roomId: string, player1Id: string, player2Id: 
     .eq('id', roomId)
     .in('room_state', ['searching', 'found'])
     .select('id')
-    .maybeSingle()
 
-  if (updateErr || !updatedRoom) {
+  if (updateErr || !updatedRoom || updatedRoom.length === 0) {
     // If we couldn't update, it means someone else already transitioned it (or it's canceled). 
     // Just fetch the existing match and return it.
     const { match: existingMatch } = await getMatchByRoomId(roomId)
