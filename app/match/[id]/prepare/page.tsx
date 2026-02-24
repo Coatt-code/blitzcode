@@ -229,12 +229,6 @@ export default function PreparePage() {
             : "Waiting for opponent to join..."}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          {hasOpponent && countdown !== null && countdown > 0 && (
-            <div className="flex flex-col items-center justify-center py-2">
-              <span className="text-5xl font-bold font-mono tracking-tighter tabular-nums text-primary">{countdown}</span>
-              <span className="text-sm text-muted-foreground mt-2">Get ready...</span>
-            </div>
-          )}
           <Button
             className="w-full"
             disabled={starting || !hasOpponent || (countdown !== null && countdown > 0)}
@@ -265,6 +259,13 @@ export default function PreparePage() {
               }
             }}
           >
+          {hasOpponent && countdown !== null && countdown > 0 && (
+            <div className="flex flex-col items-center justify-center py-2">
+              <span className="text-5xl font-bold font-mono tracking-tighter tabular-nums text-primary">{countdown}</span>
+              <span className="text-sm text-muted-foreground mt-2">Get ready...</span>
+            </div>
+          )}
+          
             {starting
               ? "Starting…"
               : !hasOpponent

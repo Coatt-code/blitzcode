@@ -110,13 +110,13 @@ export async function getMatchByRoomId(roomId: string) {
   return { match: match as MatchRow | null, error }
 }
 
-/** Check if user has an active match (either searching, found, or in progress). */
+/** Check if user has an active match (either searching, preparing, or in progress). */
 export async function getUserActiveMatch(userId: string) {
   const { data: room, error: roomError } = await supabase
     .from('rooms')
     .select('id, room_state, player1_id, player2_id')
     .or(`player1_id.eq.${userId},player2_id.eq.${userId}`)
-    .in('room_state', ['searching', 'found', 'in_progress'])
+    .in('room_state', ['searching', 'preparing', 'in_progress'])
     .single()
 
   if (roomError || !room) return { room: null, match: null, error: roomError }
@@ -141,7 +141,7 @@ export async function createMatch(roomId: string, player1Id: string, player2Id: 
     .from('rooms')
     .update({ room_state: 'in_progress' })
     .eq('id', roomId)
-    .in('room_state', ['searching', 'found'])
+    .in('room_state', ['searching', 'preparing'])
     .select('id')
 
   if (updateErr || !updatedRoom || updatedRoom.length === 0) {
