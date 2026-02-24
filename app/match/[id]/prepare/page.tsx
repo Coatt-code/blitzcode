@@ -35,6 +35,7 @@ export default function PreparePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
+  const [countdown, setCountdown] = useState<number | null>(null);
 
   const loadRoom = useCallback(async () => {
     if (!roomId) return;
@@ -63,6 +64,55 @@ export default function PreparePage() {
     });
   }, [room, user?.id]);
 
+  const isPlayer1 = room?.player1_id === user?.id;
+  const opponentId = isPlayer1 ? room?.player2_id : room?.player1_id;
+  const hasOpponent = !!opponentId;
+
+  // Initialize countdown when opponent joins
+  useEffect(() => {
+    if (hasOpponent && countdown === null && room?.room_state !== 'in_progress' && room?.room_state !== 'started') {
+      setCountdown(5);
+    }
+  }, [hasOpponent, countdown, room?.room_state]);
+
+  // Handle countdown tick and match creation
+  useEffect(() => {
+    if (countdown === null) return;
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(c => c !== null ? c - 1 : null), 1000);
+      return () => clearTimeout(timer);
+    } else if (countdown === 0 && !starting) {
+      if (!room || !room.player2_id || !user) return;
+      if (isPlayer1) {
+        setStarting(true);
+        (async () => {
+          try {
+            const { match: existing } = await getMatchByRoomId(roomId!);
+            if (existing) {
+              router.replace(`/match/${existing.id}`);
+              return;
+            }
+            const { matchId, error: createErr } = await createMatch(
+              room.id,
+              room.player1_id,
+              room.player2_id as string
+            );
+            if (createErr || !matchId) {
+              setError("Failed to start match");
+              return;
+            }
+            router.replace(`/match/${matchId}`);
+          } catch (e) {
+            console.error(e);
+            setError("Failed to start match");
+          } finally {
+            setStarting(false);
+          }
+        })();
+      }
+    }
+  }, [countdown, starting, isPlayer1, room, roomId, user, router]);
+
   // Realtime: when room state moves to in_progress, fetch match and go to match page
   useEffect(() => {
     if (!roomId || !room) return;
@@ -84,7 +134,7 @@ export default function PreparePage() {
               : (payload.new as RoomRow)
           );
           if (newState === "in_progress" || newState === "started") {
-            const { match } = await getMatchByRoomId(roomId);
+            const { match } = await getMatchByRoomId(roomId as string);
             if (match) router.replace(`/match/${match.id}`);
           }
         }
@@ -132,9 +182,7 @@ export default function PreparePage() {
     );
   }
 
-  const isPlayer1 = room.player1_id === user.id;
-  const opponentId = isPlayer1 ? room.player2_id : room.player1_id;
-  const hasOpponent = !!opponentId;
+  // Ensure types
 
   return (
     <div className="flex min-h-[100dvh] w-screen flex-col items-center justify-center gap-8 p-4">
@@ -207,49 +255,13 @@ export default function PreparePage() {
         <CardHeader>
           <CardTitle className="text-base">Match ready</CardTitle>
           <CardDescription>
-            {hasOpponent
-              ? "You will be redirected when the game starts."
-              : "Waiting for opponent to join."}
+            {hasOpponent && countdown !== null
+              ? `Game starting in ${countdown}...`
+              : hasOpponent
+                ? "Preparing match..."
+                : "Waiting for opponent to join..."}
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex gap-2">
-          <Button
-            variant="outline"
-            className="flex-1"
-            onClick={() => router.push("/main")}
-          >
-            Leave
-          </Button>
-          <Button
-            className="flex-1"
-            disabled={starting || !hasOpponent}
-            onClick={async () => {
-              if (!room || !room.player2_id || !user) return;
-              setStarting(true);
-              try {
-                const { match: existing } = await getMatchByRoomId(roomId!);
-                if (existing) {
-                  router.replace(`/match/${existing.id}`);
-                  return;
-                }
-                const { matchId, error: createErr } = await createMatch(
-                  room.id,
-                  room.player1_id,
-                  room.player2_id
-                );
-                if (createErr || !matchId) {
-                  setError("Failed to start match");
-                  return;
-                }
-                router.replace(`/match/${matchId}`);
-              } finally {
-                setStarting(false);
-              }
-            }}
-          >
-            {starting ? "Starting…" : "Start game"}
-          </Button>
-        </CardContent>
       </Card>
     </div>
   );

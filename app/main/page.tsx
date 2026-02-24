@@ -71,11 +71,11 @@ export default function Page() {
   useEffect(() => {
     if (!user) return;
     let mounted = true;
-    
+
     // First check for active matches
     getUserActiveMatch(user.id).then(({ room, match, error }) => {
       if (!mounted) return;
-      
+
       if (room && !error) {
         setRoomId(room.id);
         if (room.room_state === 'searching') {
@@ -93,12 +93,12 @@ export default function Page() {
         }
       }
     });
-    
+
     // Then scan for available rooms
     scanRooms(user).then((n) => {
       if (mounted && typeof n === "number") setFreeRooms(n);
     });
-    
+
     return () => {
       mounted = false;
     };
@@ -151,6 +151,8 @@ export default function Page() {
         setRoomId(room.id);
         setStatus("found");
         setShowMatchFoundDialog(true);
+        setRedirectCountdown(2);
+        setStatus("redirecting");
         searchInProgressRef.current = false;
         return;
       }
@@ -205,7 +207,7 @@ export default function Page() {
     } else if (status === "redirecting" && redirectCountdown === 0) {
       goToPreparation();
     }
-    
+
     return () => {
       if (redirectTimerRef.current) {
         clearTimeout(redirectTimerRef.current);

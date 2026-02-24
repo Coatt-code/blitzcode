@@ -35,24 +35,20 @@ export async function POST(req: Request) {
     }
 
     // Extract test cases from input_output JSON
-    let testCases: string[] = [];
+    let testCases: any[] = [];
     try {
       const io = JSON.parse(problem.input_output);
-      const inputs = io.inputs?.[0]?.split('\n') || [];
-      const outputs = io.outputs?.[0]?.split('\n') || [];
-      const fnName = io.fn_name;
+      const inputs = io.inputs || [];
+      const outputs = io.outputs || [];
+      const fnName = io.fn_name || null;
 
-      if (fnName && inputs.length === outputs.length) {
-        testCases = inputs.map((inp: string, idx: number) => {
-          return `assert ${fnName}(${inp}) == ${outputs[idx]}`;
+      const maxLen = Math.max(inputs.length, outputs.length);
+      for (let i = 0; i < maxLen; i++) {
+        testCases.push({
+          input: inputs[i] || "",
+          expected: outputs[i] || "",
+          fn_name: fnName
         });
-      } else if (inputs.length === outputs.length) {
-        // rough fallback if fn_name doesn't exist but has inputs/outputs pairing
-        testCases = inputs.map((inp: string, idx: number) => {
-          return `assert ${inp} == ${outputs[idx]}`;
-        });
-      } else {
-        testCases = io.inputs || [];
       }
     } catch (err) {
       console.error("Failed to parse input_output for problem", problem.id, err);
