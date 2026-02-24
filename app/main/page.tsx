@@ -50,7 +50,7 @@ import { LoaderIcon, Swords } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge"
 
-type Status = "idle" | "searching" | "found" | "redirecting";
+type Status = "idle" | "searching" | "preparing" | "redirecting";
 
 const SEARCH_DEBOUNCE_MS = 400;
 
@@ -81,8 +81,8 @@ export default function Page() {
         setRoomId(room.id);
         if (room.room_state === 'searching') {
           setStatus('searching');
-        } else if (room.room_state === 'found') {
-          setStatus('found');
+        } else if (room.room_state === 'preparing') {
+          setStatus('preparing');
           setShowMatchFoundDialog(true);
           // Start redirect timer immediately
           setRedirectCountdown(2);
@@ -126,7 +126,7 @@ export default function Page() {
             if (!weCanceledRef.current) setCanceledByOpponent(true);
             weCanceledRef.current = false;
           } else if (newState !== "searching") {
-            setStatus("found");
+            setStatus("preparing");
             setShowMatchFoundDialog(true);
             // Start 2-second countdown
             setRedirectCountdown(2);
@@ -150,7 +150,7 @@ export default function Page() {
       const { room, error: joinError } = await connectToRoom(user);
       if (room?.id) {
         setRoomId(room.id);
-        setStatus("found");
+        setStatus("preparing");
         setShowMatchFoundDialog(true);
         setRedirectCountdown(2);
         setStatus("redirecting");
@@ -221,7 +221,7 @@ export default function Page() {
       if (!open) {
         if (status === "searching") handleCancelSearch();
         // Don't allow closing dialog when match is found or redirecting
-        else if (status === "found" || status === "redirecting") return;
+        else if (status === "preparing" || status === "redirecting") return;
       }
     },
     [status, handleCancelSearch]
@@ -262,7 +262,7 @@ export default function Page() {
   }
 
   const dialogOpen =
-    status === "searching" || (status === "found" && showMatchFoundDialog) || status === "redirecting";
+    status === "searching" || (status === "preparing" && showMatchFoundDialog) || status === "redirecting";
 
   return (
     <div className="flex h-[100dvh] w-screen flex-col">
@@ -340,7 +340,7 @@ export default function Page() {
           >
             {status === "idle" && "Play"}
             {status === "searching" && "Searching…"}
-            {status === "found" && "Match found"}
+            {status === "preparing" && "Match found"}
           </Button>
         </div>
       </div>
@@ -371,7 +371,7 @@ export default function Page() {
               </DialogFooter>
             </>
           )}
-          {status === "found" && (
+          {status === "preparing" && (
             <>
               <DialogHeader>
                 <div className="flex gap-2">

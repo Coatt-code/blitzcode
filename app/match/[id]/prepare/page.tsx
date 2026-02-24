@@ -224,12 +224,9 @@ export default function PreparePage() {
 
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-base">Match ready</CardTitle>
-          <CardDescription>
-            {hasOpponent
-              ? "Match ready!"
-              : "Waiting for opponent to join..."}
-          </CardDescription>
+          <CardTitle className="text-base">{hasOpponent
+            ? "Match ready!"
+            : "Waiting for opponent to join..."}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {hasOpponent && countdown !== null && countdown > 0 && (
