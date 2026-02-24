@@ -14,8 +14,88 @@ import OutputDisplay from "@/components/ui/output-display";
 import { ProblemContent } from "@/components/problem-content";
 import { AppWindowIcon, CodeIcon, SquareTerminal } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
+import { CheckCircle2, XCircle } from "lucide-react";
 
 const HP_MAX = 1000;
+
+type JudgeResult = {
+  results?: Array<{
+    index: number;
+    input?: string;
+    expected?: string;
+    actual?: string | null;
+    passed?: boolean;
+    error?: string;
+    execution_time_ms?: number;
+  }>;
+  passed?: boolean;
+  error?: string;
+  execution_time_ms?: number;
+};
+
+function TestResultsView({ judgeResult }: { judgeResult: JudgeResult }) {
+  if (judgeResult.error && !judgeResult.results?.length) {
+    return (
+      <div className="text-destructive">
+        {judgeResult.error}
+      </div>
+    );
+  }
+  const results = judgeResult.results ?? [];
+  const allPassed = judgeResult.passed ?? results.every((r) => r.passed);
+  return (
+    <div className="space-y-4">
+      <p className="font-medium">
+        {allPassed ? "All 3 test cases passed." : "Some test cases failed."}
+        {judgeResult.execution_time_ms != null && (
+          <span className="text-muted-foreground font-normal ml-2">
+            ({judgeResult.execution_time_ms} ms)
+          </span>
+        )}
+      </p>
+      <div className="space-y-3">
+        {results.map((r) => (
+          <div
+            key={r.index}
+            className="rounded-lg border p-3 space-y-2 text-sm"
+          >
+            <div className="flex items-center gap-2">
+              {r.passed ? (
+                <CheckCircle2 className="size-4 text-green-600 shrink-0" />
+              ) : (
+                <XCircle className="size-4 text-red-600 shrink-0" />
+              )}
+              <span className="font-medium">Test case {r.index + 1}</span>
+              {r.execution_time_ms != null && (
+                <span className="text-muted-foreground">{r.execution_time_ms} ms</span>
+              )}
+            </div>
+            <div>
+              <p className="text-muted-foreground text-xs mb-0.5">Input</p>
+              <pre className="bg-muted rounded p-2 font-mono text-xs overflow-x-auto whitespace-pre-wrap break-all">
+                {r.input ?? "(none)"}
+              </pre>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <p className="text-muted-foreground text-xs mb-0.5">Expected</p>
+                <pre className="bg-muted rounded p-2 font-mono text-xs overflow-x-auto whitespace-pre-wrap break-all">
+                  {r.expected ?? "(none)"}
+                </pre>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs mb-0.5">Your output</p>
+                <pre className="bg-muted rounded p-2 font-mono text-xs overflow-x-auto whitespace-pre-wrap break-all">
+                  {r.error ?? r.actual ?? "(none)"}
+                </pre>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function hpFromDamage(damage: number[]) {
   const total = damage.reduce((a, b) => a + b, 0);
@@ -35,6 +115,9 @@ export default function MatchPage() {
   const [submitResult, setSubmitResult] = useState<{
     correct?: boolean;
     judgeResult?: unknown;
+  } | null>(null);
+  const [testResult, setTestResult] = useState<{
+    judgeResult?: { results?: Array<{ index: number; input?: string; expected?: string; actual?: string | null; passed?: boolean; error?: string }>; passed?: boolean; error?: string };
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -124,11 +207,33 @@ export default function MatchPage() {
   const timerActive = timerEndsAt && timerEndsAt > new Date();
   const iTriggeredTimer = match.timer_triggered_by_user_id === user.id;
 
+  async function runTests() {
+    if (!matchId || !user) return;
+    setTab("output");
+    setLoading(true);
+    setTestResult(null);
+    setSubmitResult(null);
+    try {
+      const res = await fetch("/api/match/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ matchId, userId: user.id, code, limit: 3 }),
+      });
+      const data = await res.json();
+      setTestResult({ judgeResult: data.judgeResult });
+    } catch (e) {
+      setTestResult({ judgeResult: { error: "Request failed" } });
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function submitCode() {
     if (!matchId || !user) return;
     setTab("output");
     setLoading(true);
     setSubmitResult(null);
+    setTestResult(null);
     try {
       const res = await fetch("/api/match/submit", {
         method: "POST",
@@ -236,26 +341,42 @@ export default function MatchPage() {
             />
           </TabsContent>
           <TabsContent value="output" className="mt-0 flex-1 overflow-auto p-4">
-            <OutputDisplay
-              result={
-                submitResult?.correct === true
-                  ? { stdout: "Correct! Damage applied." }
-                  : submitResult?.correct === false
-                    ? { stdout: "Wrong answer or error.",/* stderr: JSON.stringify(submitResult.judgeResult)*/ }
-                    : undefined
-              }
-              loading={loading}
-            />
+            {loading ? (
+              <div className="text-muted-foreground">Running…</div>
+            ) : testResult?.judgeResult?.results ? (
+              <TestResultsView judgeResult={testResult.judgeResult} />
+            ) : submitResult ? (
+              <OutputDisplay
+                result={
+                  submitResult.correct === true
+                    ? { stdout: "Correct! Damage applied." }
+                    : submitResult.correct === false
+                      ? { stdout: "Wrong answer or error." }
+                      : undefined
+                }
+                loading={false}
+              />
+            ) : (
+              <div className="text-muted-foreground">Run tests (first 3) or Submit to see output.</div>
+            )}
           </TabsContent>
         </Tabs>
-        <Button
-          className="fixed bottom-5 right-6"
-          variant="outline"
-          onClick={submitCode}
-          disabled={loading || finished}
-        >
-          Submit
-        </Button>
+        <div className="fixed bottom-5 right-6 flex gap-2">
+          <Button
+            variant="outline"
+            onClick={runTests}
+            disabled={loading || finished}
+          >
+            Run tests
+          </Button>
+          <Button
+            variant="outline"
+            onClick={submitCode}
+            disabled={loading || finished}
+          >
+            Submit
+          </Button>
+        </div>
       </div>
     </div>
   );
