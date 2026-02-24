@@ -203,7 +203,7 @@ export default function MatchPage() {
 
   if (userLoading) {
     return (
-      <div className="flex min-h-screen w-screen items-center justify-center">
+      <div className="flex min-h-[100dvh] w-screen items-center justify-center">
         <Spinner className="size-8" />
       </div>
     );
@@ -218,7 +218,7 @@ export default function MatchPage() {
   }
   if (error || !match) {
     return (
-      <div className="flex min-h-screen w-screen flex-col items-center justify-center gap-4 px-4">
+      <div className="flex min-h-[100dvh] w-screen flex-col items-center justify-center gap-4 px-4">
         <p className="text-muted-foreground">{error ?? "Match not found"}</p>
         <Button variant="outline" onClick={() => router.push("/main")}>
           Back to lobby
@@ -228,7 +228,7 @@ export default function MatchPage() {
   }
   if (match.player1_id !== user.id && match.player2_id !== user.id) {
     return (
-      <div className="flex min-h-screen w-screen flex-col items-center justify-center gap-4 px-4">
+      <div className="flex min-h-[100dvh] w-screen flex-col items-center justify-center gap-4 px-4">
         <p className="text-muted-foreground">You are not in this match.</p>
         <Button variant="outline" onClick={() => router.push("/main")}>
           Back to lobby
@@ -274,7 +274,7 @@ export default function MatchPage() {
 
   if (finished) {
     return (
-      <div className="flex min-h-screen w-screen flex-col items-center justify-center gap-6 p-4">
+      <div className="flex min-h-[100dvh] w-screen flex-col items-center justify-center gap-6 p-4">
         <h1 className="text-2xl font-bold">{winner ? "You win!" : "You lost."}</h1>
         <div className="flex gap-8">
           <div className="text-center">

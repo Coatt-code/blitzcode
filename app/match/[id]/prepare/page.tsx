@@ -259,6 +259,12 @@ export default function PreparePage() {
               }
             }}
           >
+            {starting
+              ? "Starting…"
+              : !hasOpponent
+                ? "Waiting..."
+                : "Start coding"}
+          </Button>
           {hasOpponent && countdown !== null && countdown > 0 && (
             <div className="flex flex-col items-center justify-center py-2">
               <span className="text-5xl font-bold font-mono tracking-tighter tabular-nums text-primary">{countdown}</span>
@@ -266,12 +272,6 @@ export default function PreparePage() {
             </div>
           )}
           
-            {starting
-              ? "Starting…"
-              : !hasOpponent
-                ? "Waiting..."
-                : "Start coding"}
-          </Button>
         </CardContent>
       </Card>
     </div>

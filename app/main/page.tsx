@@ -89,7 +89,7 @@ export default function Page() {
           setStatus('redirecting');
         } else if (room.room_state === 'in_progress' && match) {
           // Redirect to active match
-          router.push(`/match/${room.id}`);
+          router.push(`/match/${match.id}`);
           return;
         }
       }
