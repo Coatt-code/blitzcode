@@ -170,7 +170,12 @@ export default function MatchPage() {
   useEffect(() => {
     if (!match?.current_problem_id) return;
     getProblem(match.current_problem_id).then(({ problem: p }) => {
-      if (p) setProblem(p);
+      if (p) {
+        setProblem(p);
+        if (p.starter_code && (code === "# write your solution\n" || !code.trim())) {
+          setCode(p.starter_code);
+        }
+      }
     });
   }, [match?.current_problem_id]);
 
@@ -331,7 +336,7 @@ export default function MatchPage() {
             {problem ? (
               <div>
                 <h2 className="text-lg font-semibold">Problem {problem.id}</h2>
-                <ProblemContent question={problem.text} />
+                <ProblemContent question={problem.question} />
               </div>
             ) : (
               <p className="text-muted-foreground">Loading problem…</p>

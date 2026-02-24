@@ -31,8 +31,30 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Problem not found" }, { status: 404 });
     }
 
-    // Extract test cases from test_list
-    const testCases: string[] = problem.test_list;
+    // Extract test cases from input_output JSON
+    let testCases: string[] = [];
+    try {
+      const io = JSON.parse(problem.input_output);
+      const inputs = io.inputs?.[0]?.split('\n') || [];
+      const outputs = io.outputs?.[0]?.split('\n') || [];
+      const fnName = io.fn_name;
+
+      if (fnName && inputs.length === outputs.length) {
+        testCases = inputs.map((inp: string, idx: number) => {
+          return `assert ${fnName}(${inp}) == ${outputs[idx]}`;
+        });
+      } else if (inputs.length === outputs.length) {
+        // rough fallback if fn_name doesn't exist but has inputs/outputs pairing
+        testCases = inputs.map((inp: string, idx: number) => {
+          return `assert ${inp} == ${outputs[idx]}`;
+        });
+      } else {
+        testCases = io.inputs || [];
+      }
+    } catch (err) {
+      console.error("Failed to parse input_output for problem", problem.id, err);
+      testCases = [];
+    }
 
     const judgeUrl = process.env.JUDGE_URL;
     if (!judgeUrl) {

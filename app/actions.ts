@@ -137,7 +137,7 @@ const TIMER_SECONDS = 60
 
 /** Create a new match for a room; set room to in_progress. Caller must pass room with player1_id, player2_id. */
 export async function createMatch(roomId: string, player1Id: string, player2Id: string) {
-  const problemId = Math.floor(Math.random() * 974) + 1
+  const problemId = Math.floor(Math.random() * 473) + 1
   const { data: match, error: matchError } = await supabase
     .from('matches')
     .insert({
@@ -161,18 +161,17 @@ export async function createMatch(roomId: string, player1Id: string, player2Id: 
   return { matchId: (match as { id: string }).id, error: null }
 }
 
-/** Problem from tests.mbpp (id 1–974). */
+/** Problem from tests.problems (id 1–473). */
 export type ProblemRow = {
   id: number
-  text: string
-  code: string
-  task_id: number
-  test_list: string[]
+  question: string
+  input_output: string
+  starter_code: string | null
 }
 
-/** Get problem by id from tests.mbpp. Uses RPC so we don't need to expose tests schema. */
+/** Get problem by id from tests.problems. Uses RPC so we don't need to expose tests schema. */
 export async function getProblem(problemId: number) {
-  const { data, error } = await supabase.rpc('get_mbpp_problem', { p_id: problemId })
+  const { data, error } = await supabase.rpc('get_problem', { p_id: problemId })
   const row = data != null ? (Array.isArray(data) ? data[0] : data) : null
   return { problem: (row as ProblemRow | null) ?? null, error }
 }
@@ -222,7 +221,7 @@ export async function applyCorrectSubmit(
       winnerId = opponentId
     } else {
       roundIndex += 1
-      currentProblemId = Math.floor(Math.random() * 974) + 1
+      currentProblemId = Math.floor(Math.random() * 473) + 1
       timerEndsAt = null
       timerTriggeredBy = null
     }
@@ -283,7 +282,7 @@ export async function applyTimerExpired(matchId: string) {
     winnerId = triggeringUser
   } else {
     roundIndex += 1
-    currentProblemId = Math.floor(Math.random() * 974) + 1
+    currentProblemId = Math.floor(Math.random() * 473) + 1
   }
 
   const { data: updated, error: updateErr } = await supabase
