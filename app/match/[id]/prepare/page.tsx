@@ -75,41 +75,49 @@ export default function PreparePage() {
     }
   }, [hasOpponent, countdown, room?.room_state]);
 
-  // Handle countdown tick and match creation
+  // Handle countdown tick
   useEffect(() => {
     if (countdown === null) return;
     if (countdown > 0) {
       const timer = setTimeout(() => setCountdown(c => c !== null ? c - 1 : null), 1000);
       return () => clearTimeout(timer);
-    } else if (countdown === 0 && !starting) {
-      if (!room || !room.player2_id || !user) return;
+    }
+  }, [countdown]);
+
+  // Handle match creation polling when countdown hits 0
+  useEffect(() => {
+    if (countdown === 0 && room?.id && room?.player1_id && room?.player2_id) {
+      let isMounted = true;
       setStarting(true);
-      (async () => {
+      const attemptStart = async () => {
+        if (!isMounted) return;
         try {
           const { match: existing } = await getMatchByRoomId(roomId!);
           if (existing) {
             router.replace(`/match/${existing.id}`);
             return;
           }
-          const { matchId, error: createErr } = await createMatch(
+          const { matchId } = await createMatch(
             room.id,
             room.player1_id,
             room.player2_id as string
           );
-          if (createErr || !matchId) {
-            setError("Failed to start match: " + (createErr?.message || "Unknown error"));
+          if (matchId) {
+            router.replace(`/match/${matchId}`);
             return;
           }
-          router.replace(`/match/${matchId}`);
         } catch (e) {
           console.error(e);
-          setError("Failed to start match");
-        } finally {
-          setStarting(false);
         }
-      })();
+        if (isMounted) {
+          setTimeout(attemptStart, 1500); // 1.5s poll delay prevents spam
+        }
+      };
+
+      attemptStart();
+      return () => { isMounted = false; };
     }
-  }, [countdown, starting, isPlayer1, room, roomId, user, router]);
+  }, [countdown, roomId, room?.id, room?.player1_id, room?.player2_id, router]);
 
   // Realtime: when room state moves to in_progress, fetch match and go to match page
   useEffect(() => {
