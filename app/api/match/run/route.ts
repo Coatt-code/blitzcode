@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { getMatch, getProblem } from "@/app/actions";
 
-type InputOutput = { inputs?: unknown[]; outputs?: unknown[] };
-
 /** Run code against first N test cases only; does not update the match. */
 export async function POST(req: Request) {
   try {
@@ -36,28 +34,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Problem not found" }, { status: 404 });
     }
 
-    let inputOutput: InputOutput = {};
-    try {
-      inputOutput =
-        typeof problem.input_output === "string"
-          ? (JSON.parse(problem.input_output) as InputOutput)
-          : problem.input_output;
-    } catch {
-      return NextResponse.json({ error: "Invalid problem input_output" }, { status: 500 });
-    }
-    const inputs = (inputOutput.inputs ?? []).map(String);
-    const outputs = (inputOutput.outputs ?? []).map(String);
+    // Extract test cases from test_list
+    const testCases: string[] = problem.test_list;
 
     const judgeUrl = process.env.JUDGE_URL;
     if (!judgeUrl) {
       return NextResponse.json({ error: "Judge not configured" }, { status: 500 });
     }
 
-    const runLimit = typeof limit === "number" && limit >= 0 ? limit : 3;
+    const runLimit = typeof limit === "number" && limit >= 0 ? Math.min(limit, 3) : 3;
     const judgeRes = await fetch(`${judgeUrl}/run`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code, inputs, outputs, limit: runLimit }),
+      body: JSON.stringify({ code, tests: testCases.slice(0, runLimit) }),
     });
     const judgeResult = await judgeRes.json().catch(() => ({}));
 

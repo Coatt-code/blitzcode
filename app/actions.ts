@@ -110,13 +110,34 @@ export async function getMatchByRoomId(roomId: string) {
   return { match: match as MatchRow | null, error }
 }
 
+/** Check if user has an active match (either searching, found, or in progress). */
+export async function getUserActiveMatch(userId: string) {
+  const { data: room, error: roomError } = await supabase
+    .from('rooms')
+    .select('id, room_state, player1_id, player2_id')
+    .or(`player1_id.eq.${userId},player2_id.eq.${userId}`)
+    .in('room_state', ['searching', 'found', 'in_progress'])
+    .single()
+  
+  if (roomError || !room) return { room: null, match: null, error: roomError }
+  
+  // If room is in progress, also get the match
+  let match = null
+  if (room.room_state === 'in_progress') {
+    const { match: matchData, error: matchError } = await getMatchByRoomId(room.id)
+    match = matchData
+  }
+  
+  return { room, match, error: null }
+}
+
 const DAMAGE_FIRST = 500
 const DAMAGE_REDUCED = 350
 const TIMER_SECONDS = 60
 
 /** Create a new match for a room; set room to in_progress. Caller must pass room with player1_id, player2_id. */
 export async function createMatch(roomId: string, player1Id: string, player2Id: string) {
-  const problemId = Math.floor(Math.random() * 50) + 1
+  const problemId = Math.floor(Math.random() * 974) + 1
   const { data: match, error: matchError } = await supabase
     .from('matches')
     .insert({
@@ -140,17 +161,18 @@ export async function createMatch(roomId: string, player1Id: string, player2Id: 
   return { matchId: (match as { id: string }).id, error: null }
 }
 
-/** Problem from tests.easy (id 1–50). */
+/** Problem from tests.mbpp (id 1–974). */
 export type ProblemRow = {
   id: number
-  question: string
-  input_output: string
-  solutions: string
+  text: string
+  code: string
+  task_id: number
+  test_list: string[]
 }
 
-/** Get problem by id from tests.easy. Uses RPC so we don't need to expose tests schema. */
+/** Get problem by id from tests.mbpp. Uses RPC so we don't need to expose tests schema. */
 export async function getProblem(problemId: number) {
-  const { data, error } = await supabase.rpc('get_easy_problem', { p_id: problemId })
+  const { data, error } = await supabase.rpc('get_mbpp_problem', { p_id: problemId })
   const row = data != null ? (Array.isArray(data) ? data[0] : data) : null
   return { problem: (row as ProblemRow | null) ?? null, error }
 }
@@ -166,8 +188,6 @@ export async function applyCorrectSubmit(
   const nowIso = now.toISOString()
   const isPlayer1 = match.player1_id === userId
   const opponentId = isPlayer1 ? match.player2_id : match.player1_id
-  const myDamage = isPlayer1 ? match.player1_damage_taken : match.player2_damage_taken
-  const oppDamage = isPlayer1 ? match.player2_damage_taken : match.player1_damage_taken
   const timerActive = match.timer_ends_at && new Date(match.timer_ends_at) > now
   const triggeredByOpponent = match.timer_triggered_by_user_id === opponentId
 
@@ -180,18 +200,11 @@ export async function applyCorrectSubmit(
   let status = match.status
   let winnerId: string | null = match.winner_id
 
+  // If no active timer, a correct submit should only START the timer for the opponent.
+  // Damage is applied when the timer expires (handled via /api/match/tick).
   if (!timerActive) {
-    const damageToOpp = DAMAGE_FIRST
-    if (isPlayer1) nextPlayer2Damage = [...nextPlayer2Damage, damageToOpp]
-    else nextPlayer1Damage = [...nextPlayer1Damage, damageToOpp]
-    const oppTotal = (isPlayer1 ? nextPlayer2Damage : nextPlayer1Damage).reduce((a, b) => a + b, 0)
-    if (oppTotal >= 1000) {
-      status = 'finished'
-      winnerId = userId
-    } else {
-      timerEndsAt = new Date(now.getTime() + TIMER_SECONDS * 1000).toISOString()
-      timerTriggeredBy = userId
-    }
+    timerEndsAt = new Date(now.getTime() + TIMER_SECONDS * 1000).toISOString()
+    timerTriggeredBy = userId
   } else if (triggeredByOpponent) {
     const endAt = new Date(match.timer_ends_at!).getTime()
     const left = Math.max(0, (endAt - now.getTime()) / 1000)
@@ -205,7 +218,7 @@ export async function applyCorrectSubmit(
       winnerId = opponentId
     } else {
       roundIndex += 1
-      currentProblemId = Math.floor(Math.random() * 50) + 1
+      currentProblemId = Math.floor(Math.random() * 974) + 1
       timerEndsAt = null
       timerTriggeredBy = null
     }
@@ -223,10 +236,10 @@ export async function applyCorrectSubmit(
       round_started_at: roundIndex > match.round_index ? nowIso : match.round_started_at,
       status,
       winner_id: winnerId,
-      updated_at: nowIso,
     })
     .eq('id', matchId)
     .select()
     .single()
+
   return { match: updated as MatchRow, error: updateErr }
 }

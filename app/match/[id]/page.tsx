@@ -21,19 +21,20 @@ const HP_MAX = 1000;
 type JudgeResult = {
   results?: Array<{
     index: number;
-    input?: string;
-    expected?: string;
-    actual?: string | null;
+    test?: string;
     passed?: boolean;
     error?: string;
-    execution_time_ms?: number;
+    expected?: string;
+    actual?: string | null;
   }>;
   passed?: boolean;
   error?: string;
   execution_time_ms?: number;
+  stderr?: string;
+  stdout?: string;
 };
 
-function TestResultsView({ judgeResult }: { judgeResult: JudgeResult }) {
+function TestResultsView({ judgeResult, showFirstTestDetails = false }: { judgeResult: JudgeResult; showFirstTestDetails?: boolean }) {
   if (judgeResult.error && !judgeResult.results?.length) {
     return (
       <div className="text-destructive">
@@ -46,7 +47,7 @@ function TestResultsView({ judgeResult }: { judgeResult: JudgeResult }) {
   return (
     <div className="space-y-4">
       <p className="font-medium">
-        {allPassed ? "All 3 test cases passed." : "Some test cases failed."}
+        {allPassed ? "All test cases passed." : "Some test cases failed."}
         {judgeResult.execution_time_ms != null && (
           <span className="text-muted-foreground font-normal ml-2">
             ({judgeResult.execution_time_ms} ms)
@@ -54,7 +55,7 @@ function TestResultsView({ judgeResult }: { judgeResult: JudgeResult }) {
         )}
       </p>
       <div className="space-y-3">
-        {results.map((r) => (
+        {results.map((r, index) => (
           <div
             key={r.index}
             className="rounded-lg border p-3 space-y-2 text-sm"
@@ -66,30 +67,41 @@ function TestResultsView({ judgeResult }: { judgeResult: JudgeResult }) {
                 <XCircle className="size-4 text-red-600 shrink-0" />
               )}
               <span className="font-medium">Test case {r.index + 1}</span>
-              {r.execution_time_ms != null && (
-                <span className="text-muted-foreground">{r.execution_time_ms} ms</span>
-              )}
             </div>
-            <div>
-              <p className="text-muted-foreground text-xs mb-0.5">Input</p>
-              <pre className="bg-muted rounded p-2 font-mono text-xs overflow-x-auto whitespace-pre-wrap break-all">
-                {r.input ?? "(none)"}
-              </pre>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <p className="text-muted-foreground text-xs mb-0.5">Expected</p>
-                <pre className="bg-muted rounded p-2 font-mono text-xs overflow-x-auto whitespace-pre-wrap break-all">
-                  {r.expected ?? "(none)"}
-                </pre>
-              </div>
-              <div>
-                <p className="text-muted-foreground text-xs mb-0.5">Your output</p>
-                <pre className="bg-muted rounded p-2 font-mono text-xs overflow-x-auto whitespace-pre-wrap break-all">
-                  {r.error ?? r.actual ?? "(none)"}
-                </pre>
-              </div>
-            </div>
+            {showFirstTestDetails && index === 0 && (
+              <>
+                <div>
+                  <p className="text-muted-foreground text-xs mb-0.5">Test Code</p>
+                  <pre className="bg-muted rounded p-2 font-mono text-xs overflow-x-auto whitespace-pre-wrap break-all">
+                    {r.test ?? "(none)"}
+                  </pre>
+                </div>
+                {r.error && (
+                  <div>
+                    <p className="text-muted-foreground text-xs mb-0.5">Error</p>
+                    <pre className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded p-2 font-mono text-xs overflow-x-auto whitespace-pre-wrap break-all text-red-800 dark:text-red-200">
+                      {r.error}
+                    </pre>
+                  </div>
+                )}
+                {r.expected !== undefined && r.actual !== undefined && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <p className="text-muted-foreground text-xs mb-0.5">Expected</p>
+                      <pre className="bg-muted rounded p-2 font-mono text-xs overflow-x-auto whitespace-pre-wrap break-all">
+                        {r.expected}
+                      </pre>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-xs mb-0.5">Actual</p>
+                      <pre className="bg-muted rounded p-2 font-mono text-xs overflow-x-auto whitespace-pre-wrap break-all">
+                        {r.actual}
+                      </pre>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         ))}
       </div>
@@ -207,27 +219,6 @@ export default function MatchPage() {
   const timerActive = timerEndsAt && timerEndsAt > new Date();
   const iTriggeredTimer = match.timer_triggered_by_user_id === user.id;
 
-  async function runTests() {
-    if (!matchId || !user) return;
-    setTab("output");
-    setLoading(true);
-    setTestResult(null);
-    setSubmitResult(null);
-    try {
-      const res = await fetch("/api/match/run", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ matchId, userId: user.id, code, limit: 3 }),
-      });
-      const data = await res.json();
-      setTestResult({ judgeResult: data.judgeResult });
-    } catch (e) {
-      setTestResult({ judgeResult: { error: "Request failed" } });
-    } finally {
-      setLoading(false);
-    }
-  }
-
   async function submitCode() {
     if (!matchId || !user) return;
     setTab("output");
@@ -309,9 +300,9 @@ export default function MatchPage() {
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <Tabs className="flex h-full flex-col" value={tab} onValueChange={setTab}>
-          <TabsList className="shrink-0">
+      <div className="flex flex-1 flex-col overflow-hidden items-center w-screen">
+        <Tabs className="flex h-full flex-col w-full" value={tab} onValueChange={setTab}>
+          <TabsList className="shrink-0 mx-auto">
             <TabsTrigger value="problem"><AppWindowIcon /> Problem</TabsTrigger>
             <TabsTrigger value="editor"><CodeIcon /> Code</TabsTrigger>
             <TabsTrigger value="output"><SquareTerminal /> Output</TabsTrigger>
@@ -320,7 +311,7 @@ export default function MatchPage() {
             {problem ? (
               <div>
                 <h2 className="text-lg font-semibold">Problem {problem.id}</h2>
-                <ProblemContent question={problem.question} />
+                <ProblemContent question={problem.text} />
               </div>
             ) : (
               <p className="text-muted-foreground">Loading problem…</p>
@@ -344,31 +335,27 @@ export default function MatchPage() {
             {loading ? (
               <div className="text-muted-foreground">Running…</div>
             ) : testResult?.judgeResult?.results ? (
-              <TestResultsView judgeResult={testResult.judgeResult} />
+              <TestResultsView judgeResult={testResult.judgeResult} showFirstTestDetails={true} />
             ) : submitResult ? (
               <OutputDisplay
                 result={
                   submitResult.correct === true
                     ? { stdout: "Correct! Damage applied." }
                     : submitResult.correct === false
-                      ? { stdout: "Wrong answer or error." }
+                      ? { 
+                          stdout: (submitResult.judgeResult as any)?.stdout || (submitResult.judgeResult as any)?.error || "Wrong answer.",
+                          stderr: (submitResult.judgeResult as any)?.stderr
+                        }
                       : undefined
                 }
                 loading={false}
               />
             ) : (
-              <div className="text-muted-foreground">Run tests (first 3) or Submit to see output.</div>
+              <div className="text-muted-foreground">Submit to see test results.</div>
             )}
           </TabsContent>
         </Tabs>
-        <div className="fixed bottom-5 right-6 flex gap-2">
-          <Button
-            variant="outline"
-            onClick={runTests}
-            disabled={loading || finished}
-          >
-            Run tests
-          </Button>
+        <div className="fixed bottom-5 right-6">
           <Button
             variant="outline"
             onClick={submitCode}

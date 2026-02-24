@@ -43,12 +43,13 @@ import {
   connectToRoom,
   scanRooms,
   cancelSearch,
+  getUserActiveMatch,
 } from "@/app/actions";
 import Image from "next/image";
 import { LoaderIcon, Swords } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type Status = "idle" | "searching" | "found";
+type Status = "idle" | "searching" | "found" | "redirecting";
 
 const SEARCH_DEBOUNCE_MS = 400;
 
@@ -60,21 +61,48 @@ export default function Page() {
   const [freeRooms, setFreeRooms] = useState(0);
   const [canceledByOpponent, setCanceledByOpponent] = useState(false);
   const [showMatchFoundDialog, setShowMatchFoundDialog] = useState(true);
+  const [redirectCountdown, setRedirectCountdown] = useState(2);
   const searchInProgressRef = useRef(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const weCanceledRef = useRef(false);
+  const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // One-time scan on load to decide create vs join (no polling; rest is realtime)
+  // Check for active match on page load
   useEffect(() => {
     if (!user) return;
     let mounted = true;
+    
+    // First check for active matches
+    getUserActiveMatch(user.id).then(({ room, match, error }) => {
+      if (!mounted) return;
+      
+      if (room && !error) {
+        setRoomId(room.id);
+        if (room.room_state === 'searching') {
+          setStatus('searching');
+        } else if (room.room_state === 'found') {
+          setStatus('found');
+          setShowMatchFoundDialog(true);
+          // Start redirect timer immediately
+          setRedirectCountdown(2);
+          setStatus('redirecting');
+        } else if (room.room_state === 'in_progress' && match) {
+          // Redirect to active match
+          router.push(`/match/${room.id}`);
+          return;
+        }
+      }
+    });
+    
+    // Then scan for available rooms
     scanRooms(user).then((n) => {
       if (mounted && typeof n === "number") setFreeRooms(n);
     });
+    
     return () => {
       mounted = false;
     };
-  }, [user]);
+  }, [user, router]);
 
   // Realtime: subscribe to our room for match found or canceled
   useEffect(() => {
@@ -99,6 +127,9 @@ export default function Page() {
           } else if (newState !== "searching") {
             setStatus("found");
             setShowMatchFoundDialog(true);
+            // Start 2-second countdown
+            setRedirectCountdown(2);
+            setStatus("redirecting");
           }
         }
       )
@@ -165,11 +196,29 @@ export default function Page() {
     if (roomId) router.push(`/match/${roomId}/prepare`);
   }, [roomId, router]);
 
+  // Redirect countdown timer
+  useEffect(() => {
+    if (status === "redirecting" && redirectCountdown > 0) {
+      redirectTimerRef.current = setTimeout(() => {
+        setRedirectCountdown(prev => prev - 1);
+      }, 1000);
+    } else if (status === "redirecting" && redirectCountdown === 0) {
+      goToPreparation();
+    }
+    
+    return () => {
+      if (redirectTimerRef.current) {
+        clearTimeout(redirectTimerRef.current);
+      }
+    };
+  }, [status, redirectCountdown, goToPreparation]);
+
   const onDialogOpenChange = useCallback(
     (open: boolean) => {
       if (!open) {
         if (status === "searching") handleCancelSearch();
-        else if (status === "found") setShowMatchFoundDialog(false);
+        // Don't allow closing dialog when match is found or redirecting
+        else if (status === "found" || status === "redirecting") return;
       }
     },
     [status, handleCancelSearch]
@@ -210,7 +259,7 @@ export default function Page() {
   }
 
   const dialogOpen =
-    status === "searching" || (status === "found" && showMatchFoundDialog);
+    status === "searching" || (status === "found" && showMatchFoundDialog) || status === "redirecting";
 
   return (
     <div className="flex h-[100dvh] w-screen flex-col">
@@ -326,18 +375,31 @@ export default function Page() {
                   <DialogTitle>Match found</DialogTitle>
                 </div>
                 <DialogDescription className="mt-3 mb-2">
-                  Your opponent is ready. Go to preparation to see who you're facing.
+                  Your match is ready. Redirecting in {redirectCountdown}...
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
                 <Button type="button" onClick={goToPreparation}>
-                  View opponent
+                  View opponent now
                 </Button>
-                <DialogClose asChild>
-                  <Button type="button" variant="outline">
-                    Stay
-                  </Button>
-                </DialogClose>
+              </DialogFooter>
+            </>
+          )}
+          {status === "redirecting" && (
+            <>
+              <DialogHeader>
+                <div className="flex gap-2">
+                  <Swords className="size-5 text-primary" />
+                  <DialogTitle>Match found</DialogTitle>
+                </div>
+                <DialogDescription className="mt-3 mb-2">
+                  Your match is ready. Redirecting in {redirectCountdown}...
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button type="button" onClick={goToPreparation}>
+                  Go now ({redirectCountdown})
+                </Button>
               </DialogFooter>
             </>
           )}

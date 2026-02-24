@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { getMatch, getProblem, applyCorrectSubmit } from "@/app/actions";
 
-type InputOutput = { inputs?: unknown[]; outputs?: unknown[] };
-
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -33,16 +31,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Problem not found" }, { status: 404 });
     }
 
-    let inputOutput: InputOutput = {};
-    try {
-      inputOutput = typeof problem.input_output === "string"
-        ? (JSON.parse(problem.input_output) as InputOutput)
-        : problem.input_output;
-    } catch {
-      return NextResponse.json({ error: "Invalid problem input_output" }, { status: 500 });
-    }
-    const inputs = inputOutput.inputs ?? [];
-    const outputs = inputOutput.outputs ?? [];
+    // Extract test cases from test_list
+    const testCases: string[] = problem.test_list;
 
     const judgeUrl = process.env.JUDGE_URL;
     if (!judgeUrl) {
@@ -52,7 +42,7 @@ export async function POST(req: Request) {
     const judgeRes = await fetch(`${judgeUrl}/run`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code, inputs, outputs }),
+      body: JSON.stringify({ code, tests: testCases }),
     });
     const judgeResult = await judgeRes.json().catch(() => ({}));
     const passed = Boolean(judgeResult.passed ?? judgeResult.ok ?? judgeResult.success);
@@ -66,7 +56,7 @@ export async function POST(req: Request) {
 
     const { match: updatedMatch, error: updateErr } = await applyCorrectSubmit(matchId, userId);
     if (updateErr) {
-      return NextResponse.json({ error: "Failed to update match", correct: true }, { status: 500 });
+      return NextResponse.json({ error: "Failed to update match", correct: false, judgeResult }, { status: 500 });
     }
 
     return NextResponse.json({
