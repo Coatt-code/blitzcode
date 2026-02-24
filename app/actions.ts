@@ -135,8 +135,26 @@ const DAMAGE_FIRST = 500
 const DAMAGE_REDUCED = 350
 const TIMER_SECONDS = 60
 
-/** Create a new match for a room; set room to in_progress. Caller must pass room with player1_id, player2_id. */
 export async function createMatch(roomId: string, player1Id: string, player2Id: string) {
+  // Use `rooms.room_state` as an atomic lock. Only the player who successfully updates it creates the match.
+  const { data: updatedRoom, error: updateErr } = await supabase
+    .from('rooms')
+    .update({ room_state: 'in_progress' })
+    .eq('id', roomId)
+    .in('room_state', ['searching', 'found'])
+    .select('id')
+    .single()
+
+  if (updateErr || !updatedRoom) {
+    // If we couldn't update, it means someone else already transitioned it (or it's canceled). 
+    // Just fetch the existing match and return it.
+    const { match: existingMatch } = await getMatchByRoomId(roomId)
+    if (existingMatch) {
+      return { matchId: existingMatch.id, error: null }
+    }
+    return { matchId: null as string | null, error: new Error('Room is not in a valid state to start') }
+  }
+
   const problemId = Math.floor(Math.random() * 473) + 1
   const { data: match, error: matchError } = await supabase
     .from('matches')
@@ -153,11 +171,8 @@ export async function createMatch(roomId: string, player1Id: string, player2Id: 
     })
     .select('id')
     .single()
+
   if (matchError) return { matchId: null as string | null, error: matchError }
-  await supabase
-    .from('rooms')
-    .update({ room_state: 'in_progress' })
-    .eq('id', roomId)
   return { matchId: (match as { id: string }).id, error: null }
 }
 

@@ -83,33 +83,31 @@ export default function PreparePage() {
       return () => clearTimeout(timer);
     } else if (countdown === 0 && !starting) {
       if (!room || !room.player2_id || !user) return;
-      if (isPlayer1) {
-        setStarting(true);
-        (async () => {
-          try {
-            const { match: existing } = await getMatchByRoomId(roomId!);
-            if (existing) {
-              router.replace(`/match/${existing.id}`);
-              return;
-            }
-            const { matchId, error: createErr } = await createMatch(
-              room.id,
-              room.player1_id,
-              room.player2_id as string
-            );
-            if (createErr || !matchId) {
-              setError("Failed to start match");
-              return;
-            }
-            router.replace(`/match/${matchId}`);
-          } catch (e) {
-            console.error(e);
-            setError("Failed to start match");
-          } finally {
-            setStarting(false);
+      setStarting(true);
+      (async () => {
+        try {
+          const { match: existing } = await getMatchByRoomId(roomId!);
+          if (existing) {
+            router.replace(`/match/${existing.id}`);
+            return;
           }
-        })();
-      }
+          const { matchId, error: createErr } = await createMatch(
+            room.id,
+            room.player1_id,
+            room.player2_id as string
+          );
+          if (createErr || !matchId) {
+            setError("Failed to start match: " + (createErr?.message || "Unknown error"));
+            return;
+          }
+          router.replace(`/match/${matchId}`);
+        } catch (e) {
+          console.error(e);
+          setError("Failed to start match");
+        } finally {
+          setStarting(false);
+        }
+      })();
     }
   }, [countdown, starting, isPlayer1, room, roomId, user, router]);
 
