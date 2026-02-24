@@ -148,15 +148,11 @@ export type ProblemRow = {
   solutions: string
 }
 
-/** Get problem by id from tests.easy. */
+/** Get problem by id from tests.easy. Uses RPC so we don't need to expose tests schema. */
 export async function getProblem(problemId: number) {
-  const { data: row, error } = await supabase
-    .schema('tests')
-    .from('easy')
-    .select('id, question, input_output, solutions')
-    .eq('id', problemId)
-    .single()
-  return { problem: row as ProblemRow | null, error }
+  const { data, error } = await supabase.rpc('get_easy_problem', { p_id: problemId })
+  const row = data != null ? (Array.isArray(data) ? data[0] : data) : null
+  return { problem: (row as ProblemRow | null) ?? null, error }
 }
 
 /** Apply correct-submit game logic and return updated match (for use in API). */
