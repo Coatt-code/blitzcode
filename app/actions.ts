@@ -143,7 +143,7 @@ export async function createMatch(roomId: string, player1Id: string, player2Id: 
     .eq('id', roomId)
     .in('room_state', ['searching', 'found'])
     .select('id')
-    .single()
+    .maybeSingle()
 
   if (updateErr || !updatedRoom) {
     // If we couldn't update, it means someone else already transitioned it (or it's canceled). 
