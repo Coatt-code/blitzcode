@@ -3,7 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { useUser } from "@/lib/supabase/get_client";
 import { supabaseBrowser } from "@/lib/supabase/client";
-import { getRoom, getProfile, type Profile } from "@/app/actions";
+import { getRoom, getProfile, getMatchByRoomId, createMatch, type Profile } from "@/app/actions";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,6 +34,7 @@ export default function PreparePage() {
   const [opponentProfile, setOpponentProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
 
   const loadRoom = useCallback(async () => {
     if (!roomId) return;
@@ -62,7 +63,7 @@ export default function PreparePage() {
     });
   }, [room, user?.id]);
 
-  // Realtime: when room state moves to in_progress (or similar), go to match
+  // Realtime: when room state moves to in_progress, fetch match and go to match page
   useEffect(() => {
     if (!roomId || !room) return;
     const channel = supabaseBrowser
@@ -75,16 +76,17 @@ export default function PreparePage() {
           table: "rooms",
           filter: `id=eq.${roomId}`,
         },
-        (payload) => {
+        async (payload) => {
           const newState = (payload.new as { room_state?: string })?.room_state;
-          if (newState === "in_progress" || newState === "started") {
-            router.replace(`/match/${roomId}`);
-          }
           setRoom((prev) =>
             prev
               ? { ...prev, ...(payload.new as Partial<RoomRow>) }
               : (payload.new as RoomRow)
           );
+          if (newState === "in_progress" || newState === "started") {
+            const { match } = await getMatchByRoomId(roomId);
+            if (match) router.replace(`/match/${match.id}`);
+          }
         }
       )
       .subscribe();
@@ -220,9 +222,32 @@ export default function PreparePage() {
           </Button>
           <Button
             className="flex-1"
-            onClick={() => router.push(`/match/${roomId}`)}
+            disabled={starting || !hasOpponent}
+            onClick={async () => {
+              if (!room || !room.player2_id || !user) return;
+              setStarting(true);
+              try {
+                const { match: existing } = await getMatchByRoomId(roomId!);
+                if (existing) {
+                  router.replace(`/match/${existing.id}`);
+                  return;
+                }
+                const { matchId, error: createErr } = await createMatch(
+                  room.id,
+                  room.player1_id,
+                  room.player2_id
+                );
+                if (createErr || !matchId) {
+                  setError("Failed to start match");
+                  return;
+                }
+                router.replace(`/match/${matchId}`);
+              } finally {
+                setStarting(false);
+              }
+            }}
           >
-            Start game
+            {starting ? "Starting…" : "Start game"}
           </Button>
         </CardContent>
       </Card>

@@ -67,3 +67,170 @@ export async function getProfile(userId: string) {
     .single()
   return { profile: profile as Profile | null, error }
 }
+
+// --- Matches (started games) ---
+
+export type MatchRow = {
+  id: string
+  room_id: string
+  player1_id: string
+  player2_id: string
+  status: string
+  winner_id: string | null
+  started_at: string
+  round_started_at: string | null
+  round_index: number
+  current_problem_id: number | null
+  timer_ends_at: string | null
+  timer_triggered_by_user_id: string | null
+  player1_damage_taken: number[]
+  player2_damage_taken: number[]
+  updated_at: string
+}
+
+/** Get match by id. */
+export async function getMatch(matchId: string) {
+  const { data: match, error } = await supabase
+    .from('matches')
+    .select('*')
+    .eq('id', matchId)
+    .single()
+  return { match: match as MatchRow | null, error }
+}
+
+/** Get match by room_id (for get-or-create on Start game). */
+export async function getMatchByRoomId(roomId: string) {
+  const { data: match, error } = await supabase
+    .from('matches')
+    .select('*')
+    .eq('room_id', roomId)
+    .order('started_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return { match: match as MatchRow | null, error }
+}
+
+const DAMAGE_FIRST = 500
+const DAMAGE_REDUCED = 350
+const TIMER_SECONDS = 60
+
+/** Create a new match for a room; set room to in_progress. Caller must pass room with player1_id, player2_id. */
+export async function createMatch(roomId: string, player1Id: string, player2Id: string) {
+  const problemId = Math.floor(Math.random() * 50) + 1
+  const { data: match, error: matchError } = await supabase
+    .from('matches')
+    .insert({
+      room_id: roomId,
+      player1_id: player1Id,
+      player2_id: player2Id,
+      status: 'active',
+      round_index: 0,
+      current_problem_id: problemId,
+      round_started_at: new Date().toISOString(),
+      player1_damage_taken: [],
+      player2_damage_taken: [],
+    })
+    .select('id')
+    .single()
+  if (matchError) return { matchId: null as string | null, error: matchError }
+  await supabase
+    .from('rooms')
+    .update({ room_state: 'in_progress' })
+    .eq('id', roomId)
+  return { matchId: (match as { id: string }).id, error: null }
+}
+
+/** Problem from tests.easy (id 1–50). */
+export type ProblemRow = {
+  id: number
+  question: string
+  input_output: string
+  solutions: string
+}
+
+/** Get problem by id from tests.easy. */
+export async function getProblem(problemId: number) {
+  const { data: row, error } = await supabase
+    .schema('tests')
+    .from('easy')
+    .select('id, question, input_output, solutions')
+    .eq('id', problemId)
+    .single()
+  return { problem: row as ProblemRow | null, error }
+}
+
+/** Apply correct-submit game logic and return updated match (for use in API). */
+export async function applyCorrectSubmit(
+  matchId: string,
+  userId: string,
+  now: Date = new Date()
+) {
+  const { match, error: fetchErr } = await getMatch(matchId)
+  if (fetchErr || !match) return { match: null, error: fetchErr }
+  const nowIso = now.toISOString()
+  const isPlayer1 = match.player1_id === userId
+  const opponentId = isPlayer1 ? match.player2_id : match.player1_id
+  const myDamage = isPlayer1 ? match.player1_damage_taken : match.player2_damage_taken
+  const oppDamage = isPlayer1 ? match.player2_damage_taken : match.player1_damage_taken
+  const timerActive = match.timer_ends_at && new Date(match.timer_ends_at) > now
+  const triggeredByOpponent = match.timer_triggered_by_user_id === opponentId
+
+  let nextPlayer1Damage = [...match.player1_damage_taken]
+  let nextPlayer2Damage = [...match.player2_damage_taken]
+  let timerEndsAt: string | null = null
+  let timerTriggeredBy: string | null = null
+  let roundIndex = match.round_index
+  let currentProblemId = match.current_problem_id
+  let status = match.status
+  let winnerId: string | null = match.winner_id
+
+  if (!timerActive) {
+    const damageToOpp = DAMAGE_FIRST
+    if (isPlayer1) nextPlayer2Damage = [...nextPlayer2Damage, damageToOpp]
+    else nextPlayer1Damage = [...nextPlayer1Damage, damageToOpp]
+    const oppTotal = (isPlayer1 ? nextPlayer2Damage : nextPlayer1Damage).reduce((a, b) => a + b, 0)
+    if (oppTotal >= 1000) {
+      status = 'finished'
+      winnerId = userId
+    } else {
+      timerEndsAt = new Date(now.getTime() + TIMER_SECONDS * 1000).toISOString()
+      timerTriggeredBy = userId
+    }
+  } else if (triggeredByOpponent) {
+    const endAt = new Date(match.timer_ends_at!).getTime()
+    const left = Math.max(0, (endAt - now.getTime()) / 1000)
+    const ratio = left / TIMER_SECONDS
+    const damage = Math.round(DAMAGE_REDUCED + (DAMAGE_FIRST - DAMAGE_REDUCED) * (1 - ratio))
+    if (isPlayer1) nextPlayer1Damage = [...nextPlayer1Damage, damage]
+    else nextPlayer2Damage = [...nextPlayer2Damage, damage]
+    const myTotal = (isPlayer1 ? nextPlayer1Damage : nextPlayer2Damage).reduce((a, b) => a + b, 0)
+    if (myTotal >= 1000) {
+      status = 'finished'
+      winnerId = opponentId
+    } else {
+      roundIndex += 1
+      currentProblemId = Math.floor(Math.random() * 50) + 1
+      timerEndsAt = null
+      timerTriggeredBy = null
+    }
+  }
+
+  const { data: updated, error: updateErr } = await supabase
+    .from('matches')
+    .update({
+      player1_damage_taken: nextPlayer1Damage,
+      player2_damage_taken: nextPlayer2Damage,
+      timer_ends_at: timerEndsAt,
+      timer_triggered_by_user_id: timerTriggeredBy,
+      round_index: roundIndex,
+      current_problem_id: currentProblemId,
+      round_started_at: roundIndex > match.round_index ? nowIso : match.round_started_at,
+      status,
+      winner_id: winnerId,
+      updated_at: nowIso,
+    })
+    .eq('id', matchId)
+    .select()
+    .single()
+  return { match: updated as MatchRow, error: updateErr }
+}
