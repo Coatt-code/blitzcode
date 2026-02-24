@@ -84,41 +84,6 @@ export default function PreparePage() {
     }
   }, [countdown]);
 
-  // Handle match creation polling when countdown hits 0
-  useEffect(() => {
-    if (countdown === 0 && room?.id && room?.player1_id && room?.player2_id) {
-      let isMounted = true;
-      setStarting(true);
-      const attemptStart = async () => {
-        if (!isMounted) return;
-        try {
-          const { match: existing } = await getMatchByRoomId(roomId!);
-          if (existing) {
-            router.replace(`/match/${existing.id}`);
-            return;
-          }
-          const { matchId } = await createMatch(
-            room.id,
-            room.player1_id,
-            room.player2_id as string
-          );
-          if (matchId) {
-            router.replace(`/match/${matchId}`);
-            return;
-          }
-        } catch (e) {
-          console.error(e);
-        }
-        if (isMounted) {
-          setTimeout(attemptStart, 1500); // 1.5s poll delay prevents spam
-        }
-      };
-
-      attemptStart();
-      return () => { isMounted = false; };
-    }
-  }, [countdown, roomId, room?.id, room?.player1_id, room?.player2_id, router]);
-
   // Realtime: when room state moves to in_progress, fetch match and go to match page
   useEffect(() => {
     if (!roomId || !room) return;
@@ -261,13 +226,55 @@ export default function PreparePage() {
         <CardHeader>
           <CardTitle className="text-base">Match ready</CardTitle>
           <CardDescription>
-            {hasOpponent && countdown !== null
-              ? `Game starting in ${countdown}...`
-              : hasOpponent
-                ? "Preparing match..."
-                : "Waiting for opponent to join..."}
+            {hasOpponent
+              ? "Match ready!"
+              : "Waiting for opponent to join..."}
           </CardDescription>
         </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {hasOpponent && countdown !== null && countdown > 0 && (
+            <div className="flex flex-col items-center justify-center py-2">
+              <span className="text-5xl font-bold font-mono tracking-tighter tabular-nums text-primary">{countdown}</span>
+              <span className="text-sm text-muted-foreground mt-2">Get ready...</span>
+            </div>
+          )}
+          <Button
+            className="w-full"
+            disabled={starting || !hasOpponent || (countdown !== null && countdown > 0)}
+            onClick={async () => {
+              if (!room || !room.player2_id || !user) return;
+              setStarting(true);
+              try {
+                const { match: existing } = await getMatchByRoomId(roomId as string);
+                if (existing) {
+                  router.replace(`/match/${existing.id}`);
+                  return;
+                }
+                const { matchId, error: createErr } = await createMatch(
+                  room.id,
+                  room.player1_id,
+                  room.player2_id as string
+                );
+                if (createErr || !matchId) {
+                  setError("Failed to start match: " + (createErr?.message || "Unknown error"));
+                  return;
+                }
+                router.replace(`/match/${matchId}`);
+              } catch (e) {
+                console.error(e);
+                setError("Failed to start match");
+              } finally {
+                setStarting(false);
+              }
+            }}
+          >
+            {starting
+              ? "Starting…"
+              : !hasOpponent
+                ? "Waiting..."
+                : "Start coding"}
+          </Button>
+        </CardContent>
       </Card>
     </div>
   );

@@ -48,6 +48,7 @@ import {
 import Image from "next/image";
 import { LoaderIcon, Swords } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge"
 
 type Status = "idle" | "searching" | "found" | "redirecting";
 
@@ -281,6 +282,7 @@ export default function Page() {
           </ItemMedia>
           <ItemContent>
             <ItemTitle>{user?.user_metadata?.name ?? "Player"}</ItemTitle>
+            <Badge variant="outline">Unranked</Badge>
           </ItemContent>
           <ItemActions>
             <DropdownMenu>
@@ -336,7 +338,7 @@ export default function Page() {
             onClick={startMatchmaking}
             disabled={status === "searching"}
           >
-            {status === "idle" && "Ranked mode"}
+            {status === "idle" && "Play"}
             {status === "searching" && "Searching…"}
             {status === "found" && "Match found"}
           </Button>
@@ -377,14 +379,9 @@ export default function Page() {
                   <DialogTitle>Match found</DialogTitle>
                 </div>
                 <DialogDescription className="mt-3 mb-2">
-                  Your match is ready. Redirecting in {redirectCountdown}...
+                  Your match is ready. Starting in {redirectCountdown}...
                 </DialogDescription>
               </DialogHeader>
-              <DialogFooter>
-                <Button type="button" onClick={goToPreparation}>
-                  View opponent now
-                </Button>
-              </DialogFooter>
             </>
           )}
           {status === "redirecting" && (
@@ -395,14 +392,9 @@ export default function Page() {
                   <DialogTitle>Match found</DialogTitle>
                 </div>
                 <DialogDescription className="mt-3 mb-2">
-                  Your match is ready. Redirecting in {redirectCountdown}...
+                  Your match is ready. Starting in {redirectCountdown}...
                 </DialogDescription>
               </DialogHeader>
-              <DialogFooter>
-                <Button type="button" onClick={goToPreparation}>
-                  Go now ({redirectCountdown})
-                </Button>
-              </DialogFooter>
             </>
           )}
         </DialogContent>
