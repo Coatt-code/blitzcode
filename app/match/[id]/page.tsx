@@ -133,6 +133,26 @@ export default function MatchPage() {
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const handleTimerExpire = useCallback(async () => {
+    if (!matchId || !user) return;
+    try {
+      await fetch("/api/match/tick", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ matchId, userId: user.id }),
+      });
+    } catch { }
+  }, [matchId, user]);
+
+  useEffect(() => {
+    const endsAt = match?.timer_ends_at ? new Date(match.timer_ends_at) : null;
+    if (!endsAt || !matchId || !user) return;
+    const remaining = endsAt.getTime() - Date.now();
+    if (remaining <= 0) {
+      handleTimerExpire();
+    }
+  }, [match?.timer_ends_at, matchId, user, handleTimerExpire]);
+
   const loadMatch = useCallback(async () => {
     if (!matchId) return;
     const { match: m, error: e } = await getMatch(matchId);
@@ -237,7 +257,7 @@ export default function MatchPage() {
         judgeResult: data.judgeResult,
       });
       if (data.match) setMatch(data.match);
-    } catch (e) {
+    } catch {
       setSubmitResult({ correct: false, judgeResult: { error: "Request failed" } });
     } finally {
       setLoading(false);
@@ -285,7 +305,7 @@ export default function MatchPage() {
             <p className="text-muted-foreground text-xs">
               {iTriggeredTimer ? "Opponent has 1 min" : "You have 1 min"}
             </p>
-            <TimerCountdown endsAt={timerEndsAt!} />
+            <TimerCountdown endsAt={timerEndsAt!} onExpire={handleTimerExpire} />
           </div>
         )}
         <div className="flex flex-1 flex-col gap-1 text-right">
@@ -340,12 +360,12 @@ export default function MatchPage() {
               <OutputDisplay
                 result={
                   submitResult.correct === true
-                    ? { stdout: "Correct! Damage applied." }
+                    ? { stdout: "Correct! Waiting for opponent to submit." }
                     : submitResult.correct === false
-                      ? { 
-                          stdout: (submitResult.judgeResult as any)?.stdout || (submitResult.judgeResult as any)?.error || "Wrong answer.",
-                          stderr: (submitResult.judgeResult as any)?.stderr
-                        }
+                      ? {
+                        stdout: (submitResult.judgeResult as JudgeResult)?.stdout || (submitResult.judgeResult as JudgeResult)?.error || "Wrong answer.",
+                        stderr: (submitResult.judgeResult as JudgeResult)?.stderr
+                      }
                       : undefined
                 }
                 loading={false}
@@ -359,9 +379,9 @@ export default function MatchPage() {
           <Button
             variant="outline"
             onClick={submitCode}
-            disabled={loading || finished}
+            disabled={loading || finished || !!(timerActive && iTriggeredTimer)}
           >
-            Submit
+            {timerActive && iTriggeredTimer ? "Waiting for Opponent..." : "Submit"}
           </Button>
         </div>
       </div>
@@ -369,15 +389,20 @@ export default function MatchPage() {
   );
 }
 
-function TimerCountdown({ endsAt }: { endsAt: Date }) {
+function TimerCountdown({ endsAt, onExpire }: { endsAt: Date; onExpire: () => void }) {
   const [left, setLeft] = useState(() => Math.max(0, Math.ceil((endsAt.getTime() - Date.now()) / 1000)));
   useEffect(() => {
+    let expired = false;
     const t = setInterval(() => {
       const s = Math.max(0, Math.ceil((endsAt.getTime() - Date.now()) / 1000));
       setLeft(s);
-      if (s <= 0) clearInterval(t);
+      if (s <= 0 && !expired) {
+        expired = true;
+        clearInterval(t);
+        onExpire();
+      }
     }, 200);
     return () => clearInterval(t);
-  }, [endsAt]);
+  }, [endsAt, onExpire]);
   return <p className="font-mono font-semibold">{left}s</p>;
 }

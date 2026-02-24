@@ -118,16 +118,16 @@ export async function getUserActiveMatch(userId: string) {
     .or(`player1_id.eq.${userId},player2_id.eq.${userId}`)
     .in('room_state', ['searching', 'found', 'in_progress'])
     .single()
-  
+
   if (roomError || !room) return { room: null, match: null, error: roomError }
-  
+
   // If room is in progress, also get the match
   let match = null
   if (room.room_state === 'in_progress') {
     const { match: matchData, error: matchError } = await getMatchByRoomId(room.id)
     match = matchData
   }
-  
+
   return { room, match, error: null }
 }
 
@@ -202,6 +202,10 @@ export async function applyCorrectSubmit(
 
   // If no active timer, a correct submit should only START the timer for the opponent.
   // Damage is applied when the timer expires (handled via /api/match/tick).
+  if (timerActive && !triggeredByOpponent) {
+    return { match, error: null }
+  }
+
   if (!timerActive) {
     timerEndsAt = new Date(now.getTime() + TIMER_SECONDS * 1000).toISOString()
     timerTriggeredBy = userId
@@ -234,6 +238,64 @@ export async function applyCorrectSubmit(
       round_index: roundIndex,
       current_problem_id: currentProblemId,
       round_started_at: roundIndex > match.round_index ? nowIso : match.round_started_at,
+      status,
+      winner_id: winnerId,
+    })
+    .eq('id', matchId)
+    .select()
+    .single()
+
+  return { match: updated as MatchRow, error: updateErr }
+}
+
+/** Apply game logic when a timer expires. */
+export async function applyTimerExpired(matchId: string) {
+  const { match, error: fetchErr } = await getMatch(matchId)
+  if (fetchErr || !match) return { match: null, error: fetchErr }
+
+  if (!match.timer_ends_at || !match.timer_triggered_by_user_id) {
+    return { match, error: null }
+  }
+
+  const triggeringUser = match.timer_triggered_by_user_id
+  const isPlayer1 = match.player1_id === triggeringUser
+  const victimId = isPlayer1 ? match.player2_id : match.player1_id
+
+  let nextPlayer1Damage = [...match.player1_damage_taken]
+  let nextPlayer2Damage = [...match.player2_damage_taken]
+  let roundIndex = match.round_index
+  let currentProblemId = match.current_problem_id
+  let status = match.status
+  let winnerId: string | null = match.winner_id
+
+  const damage = DAMAGE_FIRST
+
+  if (isPlayer1) {
+    nextPlayer2Damage = [...nextPlayer2Damage, damage]
+  } else {
+    nextPlayer1Damage = [...nextPlayer1Damage, damage]
+  }
+
+  const victimTotalDamage = (isPlayer1 ? nextPlayer2Damage : nextPlayer1Damage).reduce((a, b) => a + b, 0)
+
+  if (victimTotalDamage >= 1000) {
+    status = 'finished'
+    winnerId = triggeringUser
+  } else {
+    roundIndex += 1
+    currentProblemId = Math.floor(Math.random() * 974) + 1
+  }
+
+  const { data: updated, error: updateErr } = await supabase
+    .from('matches')
+    .update({
+      player1_damage_taken: nextPlayer1Damage,
+      player2_damage_taken: nextPlayer2Damage,
+      timer_ends_at: null,
+      timer_triggered_by_user_id: null,
+      round_index: roundIndex,
+      current_problem_id: currentProblemId,
+      round_started_at: new Date().toISOString(),
       status,
       winner_id: winnerId,
     })
