@@ -11,6 +11,7 @@ import CodeMirror from "@uiw/react-codemirror";
 import { python } from "@codemirror/lang-python";
 import { oneDark } from "@codemirror/theme-one-dark";
 import OutputDisplay from "@/components/ui/output-display";
+import { ProblemContent } from "@/components/problem-content";
 import { AppWindowIcon, CodeIcon, SquareTerminal } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -212,9 +213,9 @@ export default function MatchPage() {
           </TabsList>
           <TabsContent value="problem" className="flex-1 overflow-auto p-4">
             {problem ? (
-              <div className="prose dark:prose-invert max-w-none">
+              <div>
                 <h2 className="text-lg font-semibold">Problem {problem.id}</h2>
-                <p className="whitespace-pre-wrap">{problem.question}</p>
+                <ProblemContent question={problem.question} />
               </div>
             ) : (
               <p className="text-muted-foreground">Loading problem…</p>
