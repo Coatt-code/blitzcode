@@ -32,20 +32,27 @@ export async function POST(req: Request) {
     }
 
     // Extract test cases from input_output JSON
-    let testCases: any[] = [];
+    let testCases: Array<{ input: string[]; expected: string; fn_name: string }> = [];
     try {
       const io = JSON.parse(problem.input_output);
-      const inputs = io.inputs || [];
-      const outputs = io.outputs || [];
-      const fnName = io.fn_name || null;
+      const inputs: unknown = io?.inputs;
+      const outputs: unknown = io?.outputs;
+      const fnName: unknown = io?.fn_name;
 
-      const maxLen = Math.max(inputs.length, outputs.length);
-      for (let i = 0; i < maxLen; i++) {
-        testCases.push({
-          input: inputs[i] || "",
-          expected: outputs[i] || "",
-          fn_name: fnName
-        });
+      if (!Array.isArray(inputs) || !Array.isArray(outputs) || typeof fnName !== "string") {
+        testCases = [];
+      } else {
+        const maxLen = Math.max(inputs.length, outputs.length);
+        for (let i = 0; i < maxLen; i++) {
+          const inp = inputs[i];
+          const out = outputs[i];
+
+          testCases.push({
+            input: Array.isArray(inp) ? (inp as string[]) : [],
+            expected: Array.isArray(out) && typeof out[0] === "string" ? (out[0] as string) : "",
+            fn_name: fnName,
+          });
+        }
       }
     } catch (err) {
       console.error("Failed to parse input_output for problem", problem.id, err);

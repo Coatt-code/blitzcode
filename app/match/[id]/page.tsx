@@ -133,6 +133,23 @@ export default function MatchPage() {
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const firstExample = (() => {
+    if (!problem?.input_output) return null;
+    try {
+      const io = JSON.parse(problem.input_output);
+      const fnName = typeof io?.fn_name === "string" ? io.fn_name : null;
+      const inputs = Array.isArray(io?.inputs) ? io.inputs : [];
+      const outputs = Array.isArray(io?.outputs) ? io.outputs : [];
+      const firstIn = Array.isArray(inputs?.[0]) ? (inputs[0] as string[]) : null;
+      const firstOutArr = Array.isArray(outputs?.[0]) ? (outputs[0] as unknown[]) : null;
+      const firstOut = typeof firstOutArr?.[0] === "string" ? (firstOutArr[0] as string) : null;
+      if (!firstIn || firstOut == null) return null;
+      return { fnName, input: firstIn, output: firstOut };
+    } catch {
+      return null;
+    }
+  })();
+
   const handleTimerExpire = useCallback(async () => {
     if (!matchId || !user) return;
     try {
@@ -337,6 +354,27 @@ export default function MatchPage() {
               <div>
                 <h2 className="text-lg font-semibold">Problem {problem.id}</h2>
                 <ProblemContent question={problem.question} />
+                {firstExample && (
+                  <div className="mt-6 space-y-3">
+                    <p className="font-medium">Example (first test case)</p>
+                    <div className="rounded-lg border p-3 space-y-2 text-sm">
+                      <div>
+                        <p className="text-muted-foreground text-xs mb-0.5">Input</p>
+                        <pre className="bg-muted rounded p-2 font-mono text-xs overflow-x-auto whitespace-pre-wrap break-all">
+                          {firstExample.fnName
+                            ? `${firstExample.fnName}(${firstExample.input.map((a) => JSON.stringify(a)).join(", ")})`
+                            : `[${firstExample.input.map((a) => JSON.stringify(a)).join(", ")}]`}
+                        </pre>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground text-xs mb-0.5">Expected output</p>
+                        <pre className="bg-muted rounded p-2 font-mono text-xs overflow-x-auto whitespace-pre-wrap break-all">
+                          {firstExample.output}
+                        </pre>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <p className="text-muted-foreground">Loading problem…</p>

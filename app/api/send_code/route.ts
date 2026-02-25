@@ -36,20 +36,27 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Problem not found" }, { status: 404 });
     }
 
-    let tests: Array<{ input: string; expected: string; fn_name?: string }> = [];
+    let tests: Array<{ input: string[]; expected: string; fn_name: string }> = [];
     try {
       const io = JSON.parse(problem.input_output);
-      const inputs = Array.isArray(io?.inputs) ? io.inputs : [];
-      const outputs = Array.isArray(io?.outputs) ? io.outputs : [];
-      const fnName = typeof io?.fn_name === "string" ? io.fn_name : undefined;
+      const inputs: unknown = io?.inputs;
+      const outputs: unknown = io?.outputs;
+      const fnName: unknown = io?.fn_name;
 
-      const maxLen = Math.max(inputs.length, outputs.length);
-      for (let i = 0; i < maxLen; i++) {
-        tests.push({
-          input: inputs[i] ?? "",
-          expected: outputs[i] ?? "",
-          fn_name: fnName,
-        });
+      if (!Array.isArray(inputs) || !Array.isArray(outputs) || typeof fnName !== "string") {
+        tests = [];
+      } else {
+        const maxLen = Math.max(inputs.length, outputs.length);
+        for (let i = 0; i < maxLen; i++) {
+          const inp = inputs[i];
+          const out = outputs[i];
+
+          tests.push({
+            input: Array.isArray(inp) ? (inp as string[]) : [],
+            expected: Array.isArray(out) && typeof out[0] === "string" ? (out[0] as string) : "",
+            fn_name: fnName,
+          });
+        }
       }
     } catch {
       tests = [];
