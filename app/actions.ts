@@ -187,7 +187,17 @@ export type ProblemRow = {
 export async function getProblem(problemId: number) {
   const { data, error } = await supabase.rpc('get_problem', { p_id: problemId })
   const row = data != null ? (Array.isArray(data) ? data[0] : data) : null
-  return { problem: (row as ProblemRow | null) ?? null, error }
+  if (!row) return { problem: null as ProblemRow | null, error }
+
+  const r = row as any
+  const normalized: ProblemRow = {
+    id: Number(r.id),
+    question: String(r.question ?? ""),
+    input_output: String(r.input_output ?? ""),
+    starter_code: (r.starter_code ?? null) as string | null,
+  }
+
+  return { problem: normalized, error }
 }
 
 /** Apply correct-submit game logic and return updated match (for use in API). */

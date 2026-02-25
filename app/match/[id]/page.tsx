@@ -353,7 +353,7 @@ export default function MatchPage() {
             {problem ? (
               <div>
                 <h2 className="text-lg font-semibold">Problem {problem.id}</h2>
-                <ProblemContent question={problem.question} />
+                <ProblemContent question={problem.question ?? ""} />
                 {firstExample && (
                   <div className="mt-6 space-y-3">
                     <p className="font-medium">Example (first test case)</p>
