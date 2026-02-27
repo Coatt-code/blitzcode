@@ -268,6 +268,14 @@ export async function applyCorrectSubmit(
     .select()
     .single()
 
+  if (!updateErr && updated && status === 'finished') {
+    await supabase
+      .from('rooms')
+      .update({ room_state: 'ended' })
+      .eq('id', (updated as MatchRow).room_id)
+      .eq('room_state', 'in_progress')
+  }
+
   return { match: updated as MatchRow, error: updateErr }
 }
 
@@ -325,6 +333,14 @@ export async function applyTimerExpired(matchId: string) {
     .eq('id', matchId)
     .select()
     .single()
+
+  if (!updateErr && updated && status === 'finished') {
+    await supabase
+      .from('rooms')
+      .update({ room_state: 'ended' })
+      .eq('id', (updated as MatchRow).room_id)
+      .eq('room_state', 'in_progress')
+  }
 
   return { match: updated as MatchRow, error: updateErr }
 }

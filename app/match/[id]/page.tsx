@@ -3,7 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { useUser } from "@/lib/supabase/get_client";
 import { supabaseBrowser } from "@/lib/supabase/client";
-import { getMatch, getProblem, type MatchRow, type ProblemRow } from "@/app/actions";
+import { getMatch, getProblem, getProfile, type MatchRow, type ProblemRow, type Profile } from "@/app/actions";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useState, useCallback, useEffect } from "react";
@@ -15,6 +15,7 @@ import { ProblemContent } from "@/components/problem-content";
 import { AppWindowIcon, CodeIcon, SquareTerminal } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { CheckCircle2, XCircle } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const HP_MAX = 1000;
 
@@ -121,9 +122,12 @@ export default function MatchPage() {
   const matchId = typeof params.id === "string" ? params.id : null;
   const [match, setMatch] = useState<MatchRow | null>(null);
   const [problem, setProblem] = useState<ProblemRow | null>(null);
+  const [myProfile, setMyProfile] = useState<Profile | null>(null);
+  const [opponentProfile, setOpponentProfile] = useState<Profile | null>(null);
   const [code, setCode] = useState("# write your solution\n");
   const [tab, setTab] = useState("editor");
   const [loading, setLoading] = useState(false);
+  const [matchLoading, setMatchLoading] = useState(true);
   const [submitResult, setSubmitResult] = useState<{
     correct?: boolean;
     judgeResult?: unknown;
@@ -150,16 +154,40 @@ export default function MatchPage() {
     }
   })();
 
+  const loadMatch = useCallback(async () => {
+    if (!matchId) return;
+    setMatchLoading(true);
+    const { match: m, error: e } = await getMatch(matchId);
+    if (e) {
+      setError("Match not found");
+      setMatchLoading(false);
+      return;
+    }
+    if (m) setMatch(m);
+    setMatchLoading(false);
+  }, [matchId]);
+
   const handleTimerExpire = useCallback(async () => {
     if (!matchId || !user) return;
     try {
-      await fetch("/api/match/tick", {
+      const res = await fetch("/api/match/tick", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ matchId, userId: user.id }),
       });
+      const data = await res.json().catch(() => null);
+      if (data?.match) {
+        setMatch(data.match as MatchRow);
+      } else {
+        // Fallback: if tick applied but response doesn't include match, reload explicitly.
+        await loadMatch();
+      }
     } catch { }
-  }, [matchId, user]);
+  }, [matchId, user, loadMatch]);
+
+  useEffect(() => {
+    loadMatch();
+  }, [loadMatch]);
 
   useEffect(() => {
     const endsAt = match?.timer_ends_at ? new Date(match.timer_ends_at) : null;
@@ -169,20 +197,6 @@ export default function MatchPage() {
       handleTimerExpire();
     }
   }, [match?.timer_ends_at, matchId, user, handleTimerExpire]);
-
-  const loadMatch = useCallback(async () => {
-    if (!matchId) return;
-    const { match: m, error: e } = await getMatch(matchId);
-    if (e) {
-      setError("Match not found");
-      return;
-    }
-    if (m) setMatch(m);
-  }, [matchId]);
-
-  useEffect(() => {
-    loadMatch();
-  }, [loadMatch]);
 
   useEffect(() => {
     if (!match?.current_problem_id) return;
@@ -195,6 +209,22 @@ export default function MatchPage() {
       }
     });
   }, [match?.current_problem_id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    getProfile(user.id).then(({ profile }) => {
+      if (profile) setMyProfile(profile);
+    });
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!match || !user?.id) return;
+    const opponentId = match.player1_id === user.id ? match.player2_id : match.player1_id;
+    if (!opponentId) return;
+    getProfile(opponentId).then(({ profile }) => {
+      if (profile) setOpponentProfile(profile);
+    });
+  }, [match?.player1_id, match?.player2_id, user?.id]);
 
   useEffect(() => {
     if (!matchId) return;
@@ -232,6 +262,13 @@ export default function MatchPage() {
   if (!matchId) {
     router.replace("/main");
     return null;
+  }
+  if (matchLoading) {
+    return (
+      <div className="flex min-h-[100dvh] w-screen items-center justify-center">
+        <Spinner className="size-8" />
+      </div>
+    );
   }
   if (error || !match) {
     return (
@@ -289,17 +326,36 @@ export default function MatchPage() {
   const finished = match.status === "finished";
   const winner = match.winner_id === user.id;
 
+  const myName = myProfile?.name ?? "You";
+  const opponentName = opponentProfile?.name ?? "Opponent";
+
   if (finished) {
     return (
       <div className="flex min-h-[100dvh] w-screen flex-col items-center justify-center gap-6 p-4">
         <h1 className="text-2xl font-bold">{winner ? "You win!" : "You lost."}</h1>
         <div className="flex gap-8">
           <div className="text-center">
-            <p className="text-muted-foreground text-sm">You</p>
+            <div className="flex items-center justify-center gap-2">
+              <Avatar className="size-8">
+                {myProfile?.avatar_url ? (
+                  <AvatarImage src={myProfile.avatar_url} alt={myName} />
+                ) : null}
+                <AvatarFallback>{(myName?.[0] ?? "Y").toUpperCase()}</AvatarFallback>
+              </Avatar>
+              <p className="text-muted-foreground text-sm">{myName}</p>
+            </div>
             <p className="text-lg font-mono">{myHp} HP</p>
           </div>
           <div className="text-center">
-            <p className="text-muted-foreground text-sm">Opponent</p>
+            <div className="flex items-center justify-center gap-2">
+              <Avatar className="size-8">
+                {opponentProfile?.avatar_url ? (
+                  <AvatarImage src={opponentProfile.avatar_url} alt={opponentName} />
+                ) : null}
+                <AvatarFallback>{(opponentName?.[0] ?? "O").toUpperCase()}</AvatarFallback>
+              </Avatar>
+              <p className="text-muted-foreground text-sm">{opponentName}</p>
+            </div>
             <p className="text-lg font-mono">{oppHp} HP</p>
           </div>
         </div>
@@ -313,7 +369,15 @@ export default function MatchPage() {
       {/* HP and timer */}
       <div className="flex shrink-0 items-center justify-between gap-4 border-b px-4 py-2">
         <div className="flex flex-1 flex-col gap-1">
-          <p className="text-muted-foreground text-xs">You</p>
+          <div className="flex items-center gap-2">
+            <Avatar className="size-6">
+              {myProfile?.avatar_url ? (
+                <AvatarImage src={myProfile.avatar_url} alt={myName} />
+              ) : null}
+              <AvatarFallback>{(myName?.[0] ?? "Y").toUpperCase()}</AvatarFallback>
+            </Avatar>
+            <p className="text-muted-foreground text-xs">{myName}</p>
+          </div>
           <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
             <div
               className="h-full bg-green-600 transition-all"
@@ -331,7 +395,15 @@ export default function MatchPage() {
           </div>
         )}
         <div className="flex flex-1 flex-col gap-1 text-right">
-          <p className="text-muted-foreground text-xs">Opponent</p>
+          <div className="flex items-center justify-end gap-2">
+            <p className="text-muted-foreground text-xs">{opponentName}</p>
+            <Avatar className="size-6">
+              {opponentProfile?.avatar_url ? (
+                <AvatarImage src={opponentProfile.avatar_url} alt={opponentName} />
+              ) : null}
+              <AvatarFallback>{(opponentName?.[0] ?? "O").toUpperCase()}</AvatarFallback>
+            </Avatar>
+          </div>
           <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
             <div
               className="h-full bg-red-600 transition-all"
