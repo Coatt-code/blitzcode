@@ -32,7 +32,7 @@ export async function POST(req: Request) {
     }
 
     // Extract test cases from input_output JSON
-    let testCases: Array<{ input: string[]; expected: string; fn_name: string }> = [];
+    let testCases: Array<{ input: unknown[]; expected: unknown; fn_name: string }> = [];
     try {
       const io = JSON.parse(problem.input_output);
       const inputs: unknown = io?.inputs;
@@ -48,8 +48,8 @@ export async function POST(req: Request) {
           const out = outputs[i];
 
           testCases.push({
-            input: Array.isArray(inp) ? (inp as string[]) : [],
-            expected: Array.isArray(out) && typeof out[0] === "string" ? (out[0] as string) : "",
+            input: Array.isArray(inp) ? (inp as unknown[]) : [],
+            expected: Array.isArray(out) ? out[0] : out,
             fn_name: fnName,
           });
         }
