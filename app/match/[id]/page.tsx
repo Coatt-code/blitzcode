@@ -203,8 +203,11 @@ export default function MatchPage() {
     getProblem(match.current_problem_id).then(({ problem: p }) => {
       if (p) {
         setProblem(p);
-        if (p.starter_code && (code === "# write your solution\n" || !code.trim())) {
+        // Always update code when problem changes
+        if (p.starter_code) {
           setCode(p.starter_code);
+        } else {
+          setCode("# write your solution\n");
         }
       }
     });
@@ -406,7 +409,7 @@ export default function MatchPage() {
           </div>
           <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
             <div
-              className="h-full bg-red-600 transition-all"
+              className="h-full bg-red-600 transition-all ml-auto"
               style={{ width: `${(oppHp / HP_MAX) * 100}%` }}
             />
           </div>
