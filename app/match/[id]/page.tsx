@@ -482,7 +482,10 @@ export default function MatchPage() {
                     : submitResult.correct === false
                       ? {
                         stdout: (submitResult.judgeResult as JudgeResult)?.stdout || (submitResult.judgeResult as JudgeResult)?.error || "Wrong answer.",
-                        stderr: (submitResult.judgeResult as JudgeResult)?.stderr
+                        stderr: (submitResult.judgeResult as JudgeResult)?.stderr,
+                        results: (submitResult.judgeResult as JudgeResult)?.results,
+                        passed: (submitResult.judgeResult as JudgeResult)?.passed,
+                        execution_time_ms: (submitResult.judgeResult as JudgeResult)?.execution_time_ms
                       }
                       : undefined
                 }
