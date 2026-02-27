@@ -481,7 +481,7 @@ export default function MatchPage() {
                     ? { stdout: "Correct! Waiting for opponent to submit." }
                     : submitResult.correct === false
                       ? {
-                        stdout: (submitResult.judgeResult as JudgeResult)?.stdout || (submitResult.judgeResult as JudgeResult)?.error || "Wrong answer.",
+                        stdout: (submitResult.judgeResult as JudgeResult)?.stdout,
                         stderr: (submitResult.judgeResult as JudgeResult)?.stderr,
                         results: (submitResult.judgeResult as JudgeResult)?.results,
                         passed: (submitResult.judgeResult as JudgeResult)?.passed,
