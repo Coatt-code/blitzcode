@@ -153,8 +153,8 @@ export async function createMatch(roomId: string, player1Id: string, player2Id: 
     }
     return { matchId: null as string | null, error: new Error('Room is not in a valid state to start') }
   }
-  // Amount of Problems (1-341)
-  const problemId = Math.floor(Math.random() * 341) + 1
+  // Amount of Problems (44-338)
+  const problemId = Math.floor(Math.random() * 338) + 44
   const { data: match, error: matchError } = await supabase
     .from('matches')
     .insert({
