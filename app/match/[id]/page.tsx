@@ -262,16 +262,16 @@ export default function MatchPage() {
     router.replace("/login");
     return null;
   }
-  if (!matchId) {
-    router.replace("/main");
-    return null;
-  }
   if (matchLoading) {
     return (
       <div className="flex min-h-[100dvh] w-screen items-center justify-center">
         <Spinner className="size-8" />
       </div>
     );
+  }
+  if (!matchId) {
+    router.replace("/main");
+    return null;
   }
   if (error || !match) {
     return (
