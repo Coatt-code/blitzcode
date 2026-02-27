@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import { getMatch, getProblem, applyCorrectSubmit } from "@/app/actions";
 
+function unescapeValue(val: any): any {
+  if (typeof val === "string" && val.startsWith('"') && val.endsWith('"')) {
+    return val.slice(1, -1);
+  }
+  return val;
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -48,8 +55,8 @@ export async function POST(req: Request) {
           const out = outputs[i];
 
           testCases.push({
-            input: Array.isArray(inp) ? (inp as unknown[]) : [],
-            expected: Array.isArray(out) ? out[0] : out,
+            input: Array.isArray(inp) ? (inp as unknown[]).map(unescapeValue) : [],
+            expected: unescapeValue(Array.isArray(out) ? out[0] : out),
             fn_name: fnName,
           });
         }
