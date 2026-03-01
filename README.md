@@ -1,2 +1,2 @@
 Realtime 1v1 coding battles in Python.
-https://blitzcode.coatt.spacs
+https://blitzcode.coatt.space
