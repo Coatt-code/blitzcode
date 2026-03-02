@@ -36,6 +36,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -49,8 +50,11 @@ import Image from "next/image";
 import { LoaderIcon, Swords } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
+import { stat } from "fs";
 
 type Status = "idle" | "searching" | "preparing" | "redirecting";
+type playButtonText = "Play" | "Searching";
 
 const SEARCH_DEBOUNCE_MS = 400;
 
@@ -67,6 +71,9 @@ export default function Page() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const weCanceledRef = useRef(false);
   const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [pendingSearch, setPendingSearch] = useState('');
+  const [playButtonText, setPlayButtonText] = useState<playButtonText>("Play");
+  const [matchDialogOpen, setMatchDialogOpen] = useState(false);
 
   // Check for active match on page load
   useEffect(() => {
@@ -127,6 +134,7 @@ export default function Page() {
             weCanceledRef.current = false;
           } else if (newState !== "searching") {
             setStatus("preparing");
+            setMatchDialogOpen(true);
             setShowMatchFoundDialog(true);
             // Start 2-second countdown
             setRedirectCountdown(2);
@@ -171,21 +179,20 @@ export default function Page() {
   }, [user]);
 
   const startMatchmaking = useCallback(() => {
+    console.log(status)
     if (status === "searching") return;
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      debounceRef.current = null;
-      runSearch();
-    }, SEARCH_DEBOUNCE_MS);
+    setPendingSearch("searching")
+    setPlayButtonText("Searching")
+    setTimeout(() => {
+      runSearch()
+      console.log("searching!")
+    }, 5000)
   }, [status, runSearch]);
 
-  useEffect(() => {
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, []);
 
   const handleCancelSearch = useCallback(async () => {
+    setPendingSearch("canceled");
+    setPlayButtonText("Play")
     if (roomId && user) {
       weCanceledRef.current = true;
       await cancelSearch(roomId, user.id);
@@ -216,16 +223,6 @@ export default function Page() {
     };
   }, [status, redirectCountdown, goToPreparation]);
 
-  const onDialogOpenChange = useCallback(
-    (open: boolean) => {
-      if (!open) {
-        if (status === "searching") handleCancelSearch();
-        // Don't allow closing dialog when match is found or redirecting
-        else if (status === "preparing" || status === "redirecting") return;
-      }
-    },
-    [status, handleCancelSearch]
-  );
 
   async function signOut() {
     await supabaseBrowser.auth.signOut();
@@ -262,7 +259,7 @@ export default function Page() {
   }
 
   const dialogOpen =
-    status === "searching" || (status === "preparing" && showMatchFoundDialog) || status === "redirecting";
+    (status === "preparing" && showMatchFoundDialog) || status === "redirecting";
 
   return (
     <div className="flex h-[100dvh] w-screen flex-col">
@@ -331,47 +328,56 @@ export default function Page() {
             size="lg"
             variant="outline"
           />
-          <Button
-            className="aspect-square h-full w-full"
-            size="lg"
-            variant="secondary"
-            onClick={startMatchmaking}
-            disabled={status === "searching"}
-          >
-            {status === "idle" && "Play"}
-            {status === "searching" && "Searching…"}
-            {status === "preparing" && "Match found"}
-          </Button>
+        <Dialog open={matchDialogOpen} onOpenChange={setMatchDialogOpen}>
+          <DialogTrigger asChild>
+            <Button
+              className="aspect-square h-full w-full"
+              size="lg"
+              variant="secondary"
+              onClick={startMatchmaking}
+            >
+              
+              {playButtonText}
+            </Button>
+          </DialogTrigger>
+            <DialogContent showCloseButton={false} onInteractOutside={
+              ((event) => {
+              if (status === "preparing") {
+                event.preventDefault()}})}>
+                  <DialogHeader>
+                    <div className="flex gap-2">
+                      <DialogTitle>
+                        Searching for opponent
+                
+                      </DialogTitle>
+                    </div>
+                    <Separator className="mt-3" />
+                    <DialogDescription className="mt-3 mb-2">
+                      Waiting for another player…
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter >
+                    
+                      <DialogClose asChild>
+                      <Button variant='outline'>
+                        Search in background
+                      </Button>
+                    </DialogClose>
+                    <DialogClose asChild>
+                      <Button type="button" variant="destructive" onClick={handleCancelSearch} >
+                        Cancel search
+                      </Button>
+                    </DialogClose>
+                    
+                    
+                  </DialogFooter>
+              </DialogContent>
+          </Dialog>
         </div>
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={onDialogOpenChange}>
-        <DialogContent showCloseButton={false}>
-          {status === "searching" && (
-            <>
-              <DialogHeader>
-                <div className="flex gap-2">
-                  <LoaderIcon
-                    role="status"
-                    aria-label="Loading"
-                    className={cn("size-4 animate-spin mt-px")}
-                  />
-                  <DialogTitle>Searching for opponent</DialogTitle>
-                </div>
-                <DialogDescription className="mt-3 mb-2">
-                  Waiting for another player… 1/2
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter>
-                <DialogClose asChild>
-                  <Button type="button" variant="destructive">
-                    Cancel search
-                  </Button>
-                </DialogClose>
-              </DialogFooter>
-            </>
-          )}
-          {status === "preparing" && (
+      
+          {/*status === "preparing" && (
             <>
               <DialogHeader>
                 <div className="flex gap-2">
@@ -396,9 +402,8 @@ export default function Page() {
                 </DialogDescription>
               </DialogHeader>
             </>
-          )}
-        </DialogContent>
-      </Dialog>
+          )*/}
+        
 
       {canceledByOpponent && (
         <div className="fixed bottom-4 left-4 right-4 mx-auto max-w-sm rounded-md border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
