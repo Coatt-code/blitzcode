@@ -419,7 +419,7 @@ export default function MatchPage() {
 
       <div className="flex flex-1 flex-col overflow-hidden items-center w-screen">
         <Tabs className="flex h-full flex-col w-full" value={tab} onValueChange={setTab}>
-          <TabsList className="shrink-0 mx-auto">
+          <TabsList className=" fixed bottom-5 z-10 w-full max-w-lg  flex self-center">
             <TabsTrigger value="problem"><AppWindowIcon /> Problem</TabsTrigger>
             <TabsTrigger value="editor"><CodeIcon /> Code</TabsTrigger>
             <TabsTrigger value="output"><SquareTerminal /> Output</TabsTrigger>
@@ -430,8 +430,8 @@ export default function MatchPage() {
                 <h2 className="text-lg font-semibold">Problem {problem.id}</h2>
                 <ProblemContent question={problem.question ?? ""} />
                 {firstExample && (
-                  <div className="mt-6 space-y-3">
-                    <p className="font-medium">Example (first test case)</p>
+                  <div className="mt-8 space-y-3">
+                    <p className="font-medium">Example</p>
                     <div className="rounded-lg border p-3 space-y-2 text-sm">
                       <div>
                         <p className="text-muted-foreground text-xs mb-0.5">Input</p>
@@ -470,6 +470,18 @@ export default function MatchPage() {
             />
           </TabsContent>
           <TabsContent value="output" className="mt-0 flex-1 overflow-auto p-4">
+            <div className="fixed left-1/2 -translate-x-1/2 bottom-20 items-center">
+              <Button
+                variant='default'
+                className="w-2xs bg-emerald-300 hover:bg-emerald-400 "
+                onClick={submitCode}
+                disabled={loading || finished || !!(timerActive && iTriggeredTimer)}
+              >
+                
+                {timerActive && iTriggeredTimer ? "Submitted" : "Submit"}
+              </Button>
+            </div>
+
             {loading ? (
               <div className="text-muted-foreground">Running…</div>
             ) : testResult?.judgeResult?.results ? (
@@ -478,7 +490,12 @@ export default function MatchPage() {
               <OutputDisplay
                 result={
                   submitResult.correct === true
-                    ? { stdout: "Correct! Waiting for opponent to submit." }
+                    ? { stdout: "Correct! Waiting for opponent to submit.",
+                        stderr: (submitResult.judgeResult as JudgeResult)?.stderr,
+                        results: (submitResult.judgeResult as JudgeResult)?.results,
+                        passed: (submitResult.judgeResult as JudgeResult)?.passed,
+                        execution_time_ms: (submitResult.judgeResult as JudgeResult)?.execution_time_ms
+                     }
                     : submitResult.correct === false
                       ? {
                         stdout: (submitResult.judgeResult as JudgeResult)?.stdout,
@@ -496,15 +513,7 @@ export default function MatchPage() {
             )}
           </TabsContent>
         </Tabs>
-        <div className="fixed bottom-5 right-6">
-          <Button
-            variant="outline"
-            onClick={submitCode}
-            disabled={loading || finished || !!(timerActive && iTriggeredTimer)}
-          >
-            {timerActive && iTriggeredTimer ? "Waiting for Opponent..." : "Submit"}
-          </Button>
-        </div>
+        
       </div>
     </div>
   );
