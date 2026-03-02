@@ -419,12 +419,13 @@ export default function MatchPage() {
 
       <div className="flex flex-1 flex-col overflow-hidden items-center w-screen">
         <Tabs className="flex h-full flex-col w-full" value={tab} onValueChange={setTab}>
-          <TabsList className=" fixed bottom-5 z-10 w-full max-w-lg  flex self-center">
+         
+          <TabsList className="fixed bottom-5 z-10 w-full max-w-lg  flex self-center">
             <TabsTrigger value="problem"><AppWindowIcon /> Problem</TabsTrigger>
             <TabsTrigger value="editor"><CodeIcon /> Code</TabsTrigger>
             <TabsTrigger value="output"><SquareTerminal /> Output</TabsTrigger>
           </TabsList>
-          <TabsContent value="problem" className="flex-1 overflow-auto p-4">
+          <TabsContent value="problem" className="flex-1 overflow-auto p-4 pb-20">
             {problem ? (
               <div>
                 <h2 className="text-lg font-semibold">Problem {problem.id}</h2>
@@ -469,11 +470,11 @@ export default function MatchPage() {
               }}
             />
           </TabsContent>
-          <TabsContent value="output" className="mt-0 flex-1 overflow-auto p-4">
+          <TabsContent value="output" className="mt-0 flex-1 overflow-auto p-4 pb-20">
             <div className="fixed left-1/2 -translate-x-1/2 bottom-20 items-center">
               <Button
                 variant='default'
-                className="w-2xs bg-emerald-300 hover:bg-emerald-400 "
+                className="w-2xs bg-emerald-300 hover:bg-emerald-400"
                 onClick={submitCode}
                 disabled={loading || finished || !!(timerActive && iTriggeredTimer)}
               >
@@ -488,6 +489,7 @@ export default function MatchPage() {
               <TestResultsView judgeResult={testResult.judgeResult} showFirstTestDetails={true} />
             ) : submitResult ? (
               <OutputDisplay
+              
                 result={
                   submitResult.correct === true
                     ? { stdout: "Correct! Waiting for opponent to submit.",
