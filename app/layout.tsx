@@ -51,7 +51,7 @@ export default async function RootLayout({
             });
           `}
         </Script>
-        <Analytics/>
+        
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
@@ -59,6 +59,7 @@ export default async function RootLayout({
           disableTransitionOnChange
         >
             {children}
+            <Analytics/>
           <Toaster />
         </ThemeProvider>
 
