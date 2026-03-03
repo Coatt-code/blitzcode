@@ -328,7 +328,7 @@ export default function Page() {
             size="lg"
             variant="outline"
           />
-        <Dialog open={matchDialogOpen} onOpenChange={setMatchDialogOpen}>
+        <Dialog>
           <DialogTrigger asChild>
             <Button
               className="aspect-square h-full w-full"
@@ -342,13 +342,11 @@ export default function Page() {
           </DialogTrigger>
             <DialogContent showCloseButton={false} onInteractOutside={
               ((event) => {
-              if (status === "preparing") {
-                event.preventDefault()}})}>
+                event.preventDefault()})}>
                   <DialogHeader>
                     <div className="flex gap-2">
                       <DialogTitle>
                         Searching for opponent
-                
                       </DialogTitle>
                     </div>
                     <Separator className="mt-3" />
@@ -357,53 +355,18 @@ export default function Page() {
                     </DialogDescription>
                   </DialogHeader>
                   <DialogFooter >
-                    
                       <DialogClose asChild>
-                      <Button variant='outline'>
-                        Search in background
-                      </Button>
                     </DialogClose>
                     <DialogClose asChild>
                       <Button type="button" variant="destructive" onClick={handleCancelSearch} >
                         Cancel search
                       </Button>
                     </DialogClose>
-                    
-                    
                   </DialogFooter>
               </DialogContent>
           </Dialog>
         </div>
-      </div>
-
-      
-          {/*status === "preparing" && (
-            <>
-              <DialogHeader>
-                <div className="flex gap-2">
-                  <Swords className="size-5 text-primary" />
-                  <DialogTitle>Match found</DialogTitle>
-                </div>
-                <DialogDescription className="mt-3 mb-2">
-                  Your match is ready. Starting in {redirectCountdown}...
-                </DialogDescription>
-              </DialogHeader>
-            </>
-          )}
-          {status === "redirecting" && (
-            <>
-              <DialogHeader>
-                <div className="flex gap-2">
-                  <Swords className="size-5 text-primary" />
-                  <DialogTitle>Match found</DialogTitle>
-                </div>
-                <DialogDescription className="mt-3 mb-2">
-                  Your match is ready. Starting in {redirectCountdown}...
-                </DialogDescription>
-              </DialogHeader>
-            </>
-          )*/}
-        
+      </div> 
 
       {canceledByOpponent && (
         <div className="fixed bottom-4 left-4 right-4 mx-auto max-w-sm rounded-md border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
